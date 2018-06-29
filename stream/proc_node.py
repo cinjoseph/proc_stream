@@ -6,9 +6,7 @@ __author__ = "chenjianing"
 import sys
 import time
 import Queue
-import importlib
 import threading
-import importlib
 
 from utils import print_traceback
 
@@ -240,7 +238,6 @@ class ProcNode:
                    "finished": finished}
 
         return summary, detail
-
 
     def input_request(self, req, handle_result=None, handle_exception=None, private_data=None):
         request = self.make_request(req, handle_result, handle_exception, private_data)

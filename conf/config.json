@@ -1,0 +1,24 @@
+{
+    "ReaderTemplate": {
+        "testreader": { 
+            "module": "readers.test_reader.TestReader"
+        }
+    },
+
+    "NodeTemplate": {
+        "SyncOutput" : {
+            "module": "nodes.testnode.SyncOutput",
+            "pool_size": 1,
+            "args": {
+                "msg": "hello world"
+            }
+        }
+    },
+
+    "Streams": {
+        "TestStream": {
+            "reader": "testreader",
+            "stream": ["SyncOutput"]
+        }
+    }
+}

@@ -7,7 +7,9 @@ __author__ = "chenjianing"
 import logging
 import logging.handlers
 
+
 logger_name = "stream_proc"
+
 
 def get_level(level_str):
     if level_str == "debug":
@@ -24,6 +26,7 @@ def get_level(level_str):
         raise Exception("Unknow level_str %s" % level_str)
     return LOG_LEVEL
 
+
 def logger_handler_exist(logger, name):
     for handler in logger.handlers:
         h_name = handler.get_name()
@@ -31,7 +34,8 @@ def logger_handler_exist(logger, name):
             return True
     return False
 
-def init_RotatingFileHandler(name, level, format_str, path):
+
+def init_rotating_file_handler(name, level, format_str, path):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
 
@@ -42,27 +46,27 @@ def init_RotatingFileHandler(name, level, format_str, path):
     logger.addHandler(file_log)
     return logger
 
-def init_StreamHandler(name, level, format_str):
+
+def init_stream_handler(name, level, format_str):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-
     console_log = logging.StreamHandler()
     console_log.setLevel(level)
     console_log.setFormatter(logging.Formatter(format_str))
     logger.addHandler(console_log)
-
     return logger
+
 
 def init_logger(level, path, console_log=False, name=None):
     if not name:
         name = logger_name
     format_str = "%(asctime)s [%(levelname)s] --> %(message)s"
     level = get_level(level)
-    logger = init_RotatingFileHandler(name, level, format_str, path)
+    logger = init_rotating_file_handler(name, level, format_str, path)
     if console_log:
-        logger = init_StreamHandler(name, level, format_str)
-
+        logger = init_stream_handler(name, level, format_str)
     return logger
+
 
 def get_logger(name=None):
     if not name:

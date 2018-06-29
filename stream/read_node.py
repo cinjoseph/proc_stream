@@ -4,7 +4,7 @@ import importlib
 import threading
 from utils import print_traceback
 
-from ..stream_proc.log import get_logger
+from log import get_logger
 
 logger = get_logger()
 

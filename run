@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
+import os
+import sys
+import imp
+import getopt
+
+from stream.run_daemon import run_daemon
+
+
+def Usage(run_name):
+    print '%s start|stop|restart [options]' % run_name
+    print 'Options'
+    print '  -f            Run as a foreground process, not a daemon.'
+    print '  -c            Set configuration file path.'
+    print '  -h            Show help.'
+
+
+class Config(dict):
+
+    def __init__(self, root_path, defaults=None):
+        dict.__init__(self, defaults or {})
+        self.root_path = root_path
+
+    def from_pyfile(self, filename, silent=False):
+        #filename = os.path.join(self.root_path, filename)
+        d = imp.new_module('config')
+        d.__file__ = filename
+        try:
+            with open(filename) as config_file:
+                exec(compile(config_file.read(), filename, 'exec'), d.__dict__)
+        except IOError as e:
+            if silent and e.errno in (errno.ENOENT, errno.EISDIR):
+                return False
+            e.strerror = 'Unable to load configuration file (%s)' % e.strerror
+            print 'Unable to load configuration file (%s)' % e.strerror
+            raise
+        for key in dir(d):
+            if key.isupper():
+                self[key] = getattr(d, key)
+        return True
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, dict.__repr__(self))
+
+def main():
+    run_name = sys.argv[0] 
+    argv = sys.argv[1:]
+
+    abs_path = os.path.abspath(__file__).rsplit('/', 1)[0]
+    conf_path = '%s/conf/%s.cfg' % (abs_path, run_name)
+
+    daemon = True
+    consolelog = False
+
+    if len(sys.argv) < 2:
+        Usage(run_name)
+        exit()
+
+    try:
+        opts, args = getopt.getopt(argv,"hfc:")
+    except getopt.GetoptError:
+        Usage(run_name)
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            Usage(run_name)
+            sys.exit()
+        elif opt in ("-f"):
+            daemon = False
+            consolelog = True
+        elif opt in ("-c"):
+            conf_path = arg
+
+
+    run_config = Config(conf_path)
+    run_config.from_pyfile(conf_path)
+
+    if consolelog:
+        run_config['CONSOLE_LOG'] = True
+    else:
+        #sys.stderr = open(run_config['DEFAULT_STDERR'] , 'w+t', buffering=0)
+        pass
+
+    if not daemon:
+        run_daemon(run_name, run_config, 'start', daemon=daemon)
+    else:
+        op = sys.argv[1] 
+        if op in ['start', 'stop', 'restart']:
+            run_daemon(run_name, run_config, op, daemon=daemon)
+        else:
+            print ("Error: unknow arg `%s` for %s" % (op, run_name))
+
+
+if __name__ == '__main__':
+    main()

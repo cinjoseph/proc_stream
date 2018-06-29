@@ -51,7 +51,7 @@ class Stream:
                 private_data=private_data)
 
     def get_info(self):
-        info = {}
+        info = {'name': self.name}
         summary, detail = self._reader.runtime_info()
         info['reader'] = {
                 "summary": summary, 
@@ -71,4 +71,62 @@ class Stream:
         self._reader.stop()
         self._stream.stop()
         logger.info("Stream Main Stop ~")
+
+
+class StreamController(object):
+
+    def __init__(self, conf, hb_cb=None):
+        """
+
+        :param conf: 流事件的配置
+        :param hb_cb: 心跳处理函数
+        """
+        self.loop_stop  = threading.Event()
+        self.conf       = conf
+        self.hb_cb      = hb_cb
+
+    def start(self):
+        node_template = self.conf['NodeTemplate']
+        reader_template = self.conf['ReaderTemplate']
+        streams_conf = self.conf['Streams']
+
+        streams = []
+
+        logger.info("--------------------------------")
+        logger.info("All Streams Start !!!")
+
+        for k, v in streams_conf.items():
+            logger.info("Init stream %s" % k)
+            stream_conf = v['stream']
+            reader_name = v['reader']
+            reader_conf = reader_template[reader_name]
+            s = Stream(k, reader_name, reader_conf,
+                    stream_conf, node_template)
+            streams.append(s)
+
+        # start streams
+        for s in streams:
+            logger.info("Start stream %s !!!" % k)
+            s.start()
+
+        count = 0
+        while not self.loop_stop.is_set():
+            if count == 5 and self.hb_cb:
+                count =0
+                self.hb_cb([ s.get_info() for s in streams ])
+                logger.info("Do Heart Beat, need exit now? %s" % (self.loop_stop.is_set()))
+            count += 1
+            time.sleep(1)
+
+        # stop streams
+        for s in streams:
+            s.stop()
+            logger.info("stop stream %s !!!" % k)
+
+        logger.info("All Streams Stop !!!")
+
+    def stop(self):
+        self.loop_stop.set()
+
+
 
