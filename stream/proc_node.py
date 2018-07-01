@@ -261,8 +261,8 @@ class ProcNode:
         for proc_thread in self.pool:
             proc_thread.start()
             logger.debug("  |- Start Proc Unit %s" % (proc_thread.name,))
-            if not proc_thread._start_success.wait(3):
-                raise ProcThreadInitError("proc thread %s init exception" % proc_thread.name)
+            if not proc_thread._start_success.wait(10):
+                raise ProcThreadInitError("proc thread %s init timeout" % proc_thread.name)
 
     def dismiss_all_threads(self):
         if len(self.pool) < 1:

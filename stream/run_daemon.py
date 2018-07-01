@@ -52,7 +52,8 @@ class Server(object):
 
     def heartbeat_cb(self, infos):
         for s in infos:
-            pprint(s)
+            # pprint(s)
+            pass
 
     def init_signal_handler(self, logger=None):
         def sig_handler(signum, frame):

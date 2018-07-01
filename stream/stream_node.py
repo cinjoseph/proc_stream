@@ -99,7 +99,6 @@ class ProcStream:
         return count
 
     def runtime_info(self):
-        summary = {}
         detail = []
         total = self.get_total_msg_count()
         in_progress = total - self.get_finished_msg_count()
@@ -142,6 +141,7 @@ class ProcStream:
         self._inc_finished_msg_count()
 
     def handler_output_exception_cb(self, private_data, exc_info):
+        logger.error(str(exc_info))
         pass
 
     def handler_output_result_cb(self, private_data, *result):

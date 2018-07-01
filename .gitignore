@@ -2,4 +2,5 @@
 /venv
 *.log
 *.pid
+/.idea
 
