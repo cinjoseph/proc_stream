@@ -23,13 +23,12 @@
 
 ## 处理逻辑
 	 
-	  
-	Event --> Trigger --> handler_Node1 -> handler_Node2 -> output_Node3 ----\
-				   ^        \ ***************** Stream ***************** /   |
-				   |                                                         |
-				   |                                                         |
-				   |                                                         |
-				   \-------------------------Notice--------------------------/
+	 Event --> Trigger --> handler_Node1 -> handler_Node2 -> output_Node3 --\
+	             ^         \ ***************** Stream ***************** /   |
+	             |                                                          |
+	             |                                                          |
+	             |                                                          |
+	             \--------------------------Notice--------------------------/
     									
 	
 	ProcStream的逻辑单元分为 Event、Trigger、Stream、 Node
