@@ -38,6 +38,81 @@
 	Node（节点）：Node是处理事件的最小单元，节点依附于Stream存在，不能单独存在。Node存在两种类型：output、handler，
 		output-Node：Stream不关心Output—Node的结果返回，所以不会Output—Node的结果进行等待，对在处理流程中，当一个Event递交给output-Node后，会立即将Event传递给下一个Node进行处理。一般output-Node作为输出使用，例如数据入库，通知等。
 		handler-Node：Stream关心handler-Node的返回，handler-Node可能对Event进行继续/更新/丢弃等动作。Stream会根据不同的动作采取不同的动作。当handler-Node的处理结果返回，且结果不为丢弃时，才会把Event继续向后传递。
+		
+		
+
+## 配置文件：
+	
+conf/run.cfg
+
+	base_dir = '/path_to_your_project_dir'
+	STDIN   = "/dev/null"
+	STDOUT  = base_dir + '/var/log/err.log'
+	STDERR  = base_dir + '/var/log/err.log'
+	DEFAULT_STDERR = base_dir + '/var/log/err.log'
+	
+	PID_FILE = base_dir + '/var/run/sdp_id_engine.pid'
+	PID_FILE_TIMEOUT = 3
+	
+	LOG_FILE = base_dir + '/var/log/run.log'
+	LOG_LEVEL = "info"	# debug info warning error
+	
+	CONF_FILE_PATH = base_dir + '/conf/config.json' # 指定stream conf 位置
+	
+conf/config.json
+
+	{
+		// trigger 模板
+	    "TriggerTemplate": { 
+	        "testtrigger": {
+	            "module": "stream.build_in_triggers.test_reader.TestReader"
+	        }
+	    },
+	    
+		// Node 模板
+	    "NodeTemplate": {
+	        "Build_in_SyncOutput" : {
+		        // Node使用的Module地址
+	            "module": "plugin.nodes.testnode.SyncOutput", 
+	            // 线程池大小，默认为1
+	            "pool_size": 1,	
+	            // node所需参数
+	            "args": { 
+	                "msg": "hello world"
+	            }
+	        }	
+	    },
+	
+	    "Streams": {
+	    	// 定义流
+	    	"TestStream": {
+	           "trigger": "testtrigger",
+	           "stream": ["Build_in_SyncOutput"]
+	       }，
+	       // 当然可以定义多条流
+	      	"TestStream": {
+	           "trigger": "testtrigger",
+	           "stream": ["Build_in_SyncOutput"]
+	       }
+	    }
+	}
+
+## 如何启动
+
+	./run start|stop|restart [options]
+	Options
+	  -f            Run as a foreground process, not a daemon.
+	  -c            Set configuration file path.
+	  -h            Show help.	./run	
+	  
+## 先试一下？
+	框架中已经有集成好的Test的配置，也有集成好的示例代码。
+	为何不直接./run -f跑起来看下效果呢？
+	
+
+	
+	
+	
 	
 	    
 	    
