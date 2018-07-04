@@ -3,4 +3,5 @@
 *.log
 *.pid
 /.idea
+/daemon
 

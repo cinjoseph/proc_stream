@@ -234,7 +234,8 @@ class ReaderThread(threading.Thread):
         private_data = private_data['private_data']
 
         try:
-            finish_ack_cb(private_data)
+            if finish_ack_cb:
+                finish_ack_cb(private_data)
         except:
             print_traceback()
 
