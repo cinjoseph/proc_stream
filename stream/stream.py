@@ -10,7 +10,7 @@ import traceback
 import threading
 from pprint import pprint
 
-from read_node import ReaderNode
+from trigger_node import ReaderNode
 from proc_node import ProcNode
 from stream_node import ProcStream
 from utils import print_traceback
