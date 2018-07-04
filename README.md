@@ -39,7 +39,7 @@
 		output-Node：Stream不关心Output—Node的结果返回，所以不会Output—Node的结果进行等待，对在处理流程中，当一个Event递交给output-Node后，会立即将Event传递给下一个Node进行处理。一般output-Node作为输出使用，例如数据入库，通知等。
 		handler-Node：Stream关心handler-Node的返回，handler-Node可能对Event进行继续/更新/丢弃等动作。Stream会根据不同的动作采取不同的动作。当handler-Node的处理结果返回，且结果不为丢弃时，才会把Event继续向后传递。
 		
-		
+<br>		
 
 ## 配置文件：
 	
@@ -97,6 +97,8 @@ conf/config.json
 	    }
 	}
 
+<br>
+
 ## 如何启动
 
 	./run start|stop|restart [options]
@@ -104,7 +106,9 @@ conf/config.json
 	  -f            Run as a foreground process, not a daemon.
 	  -c            Set configuration file path.
 	  -h            Show help.	./run	
-	  
+
+<br>
+
 ## 先试一下？
 	框架中已经有集成好的Test的配置，也有集成好的示例代码。
 	为何不直接./run -f跑起来看下效果呢？
