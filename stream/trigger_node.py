@@ -49,7 +49,7 @@ class ReaderNode:
         for i in range(pool_size):
             name = self.name + ".unit%s" % (i + 1)
             reader = reader_cls(reader_args)
-            t = ReaderThread(reader, self.reader_callback, name)
+            t = TriggerThread(reader, self.reader_callback, name)
             self.pool.append(t)
 
         self.reader_output = None
@@ -117,7 +117,8 @@ class ReaderNode:
         for r in self.pool:
             r.join()
 
-class ReaderThread(threading.Thread):
+
+class TriggerThread(threading.Thread):
 
     def __init__(self, reader, read_callback, name=None):
         threading.Thread.__init__(self)
