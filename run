@@ -45,7 +45,7 @@ class Config(dict):
         return '<%s %s>' % (self.__class__.__name__, dict.__repr__(self))
 
 def main():
-    run_name = sys.argv[0] 
+    run_name = sys.argv[0].split('/')[-1]
     argv = sys.argv[1:]
 
     abs_path = os.path.abspath(__file__).rsplit('/', 1)[0]
