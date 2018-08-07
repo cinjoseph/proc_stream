@@ -1,17 +1,9 @@
 # -*- coding: utf-8 -*-
 
 # standard library modules
-import re
-import sys
 import time
-import json
-import datetime
-import traceback
 import threading
-from pprint import pprint
-
 from trigger_node import ReaderNode
-from proc_node import ProcNode
 from stream_node import ProcStream
 from utils import print_traceback
 
@@ -111,7 +103,7 @@ class StreamController(object):
 
         count = 0
         while not self.loop_stop.is_set():
-            if count == 5 and self.hb_cb:
+            if count == 10 and self.hb_cb:
                 count =0
                 self.hb_cb([ s.get_info() for s in streams ])
                 logger.info("Do Heart Beat, need exit now? %s" % (self.loop_stop.is_set()))

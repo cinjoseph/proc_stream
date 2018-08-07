@@ -180,13 +180,13 @@ class NodeThread(threading.Thread):
         self._dismissed.set()
 
 
-class ProcNode:
+class ProcNodeController:
 
     def __init__(self, name, node_cls, node_args, pool_size=1, 
-            poll_timeout=1):
+            poll_timeout=1, queue_size=0):
         self.name = name
         self.stop_event = threading.Event()
-        self._requests_queue = Queue.Queue()
+        self._requests_queue = Queue.Queue(queue_size)
 
         self.type = node_cls._node_type
 
@@ -290,7 +290,7 @@ class ProcNode:
                     (self.name, total-finished))
             if total - finished == 0:
                 break
-            time.sleep(self._poll_timeout/2)
+            time.sleep(self._poll_timeout)
 
         for i in range(len(self.pool)):
             self.dismiss_all_threads()

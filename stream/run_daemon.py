@@ -4,8 +4,8 @@ import re
 import time
 import json
 import signal
+import pprint
 import traceback
-from pprint import pprint
 
 from daemon import runner
 
@@ -40,8 +40,12 @@ class Server(object):
         self.logfile    = run_config['LOG_FILE']
         self.loglevel   = run_config.get('LOG_LEVEL', 'info')
         self.consolelog = run_config.get('CONSOLE_LOG', False)
-        self.sc         = StreamController(self.read_conf(run_config['CONF_FILE_PATH']),
-                                hb_cb=self.heartbeat_cb)
+
+        conf = self.read_conf(run_config['CONF_FILE_PATH'])
+        if not conf:
+            raise Exception("can not get stream config!!!!")
+
+        self.sc         = StreamController(conf, hb_cb=self.heartbeat_cb)
 
     def read_conf(self, conf_path):
         f = open(conf_path, 'r')
@@ -51,9 +55,10 @@ class Server(object):
         return json.loads(conf)
 
     def heartbeat_cb(self, infos):
-        for s in infos:
-            # pprint(s)
-            pass
+        logger = get_logger()
+        s = pprint.pformat(infos)
+        # for s in s.replace('\r', "").split('\n'):
+        # logger.info("Server Runtime Info:\n%s" % s)
 
     def init_signal_handler(self, logger=None):
         def sig_handler(signum, frame):

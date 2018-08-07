@@ -11,11 +11,12 @@ import threading
 import traceback
 import logging
 
-from proc_node import ProcNode, PoolNotReady
+from proc_node import ProcNodeController, PoolNotReady
 from proc_node import PROC_STOP, PROC_CONTINUE, PROC_UPDATE
 from utils import get_module_class
 
 import log
+
 logger = log.get_logger()
 
 class NodeFactory:
@@ -24,19 +25,23 @@ class NodeFactory:
         self.conf = conf
 
     def new(self, node_name):
-        conf = self.conf.get(node_name)
+        conf = self.conf[node_name]
         module_path = conf.get('module', None)
         if not module_path:
             raise Exception("%s conf doesn't has module conf" % node_name)
         node_cls = get_module_class(module_path)
+        if not node_cls:
+            raise Exception("Can not get class %s %s" % (node_name, module_path))
         node_args = conf.get("args", {})
         pool_size = conf.get('pool_size', 1) 
         poll_timeout = conf.get('poll_timeout', 1)
+        queue_size = conf.get('queue_size', 0)
+
 
         current_t_name = threading.current_thread().getName()
         node_name = current_t_name + "." + node_name
-        node = ProcNode(node_name, node_cls, node_args,
-                pool_size=pool_size, poll_timeout=poll_timeout)
+        node = ProcNodeController(node_name, node_cls, node_args,
+                pool_size=pool_size, poll_timeout=poll_timeout, queue_size=queue_size)
 
         return node
 
@@ -116,23 +121,20 @@ class ProcStream:
             if event.pos >= len(self.stream): 
                 return None
 
-            node = self.stream[event.pos]
-            # node.input_request(event.msg, self.handler_result_cb,
-            #                    self.handler_exception_cb, event)
-
-            if node.type == "handler":
-                node.input_request(event.msg, self.handler_result_cb,
+            next_node = self.stream[event.pos]
+            if next_node.type == "handler":
+                next_node.input_request(event.msg, self.handler_result_cb,
                             self.handler_exception_cb, event)
-            elif node.type == "output":
+            elif next_node.type == "output":
                 try:
-                    node.input_request(event.msg, self.handler_output_result_cb,
+                    next_node.input_request(event.msg, self.handler_output_result_cb,
                                        self.handler_output_exception_cb, None)
                     self.handler_result_cb(event, PROC_CONTINUE, None)
                 except:
                     self.handler_exception_cb(event, sys.exc_info())
             else:
-                raise Exception("Unknow node type %s" % node.type)
-            return node
+                raise Exception("Unknow node type %s" % next_node.type)
+            return next_node
 
     def send_result(self, result, async_context):
         handle_result = async_context['handle_result']
@@ -141,6 +143,7 @@ class ProcStream:
         self._inc_finished_msg_count()
 
     def handler_output_exception_cb(self, private_data, exc_info):
+        logger.error("Recv Exceptin From Output:")
         logger.error(str(exc_info))
         pass
 
