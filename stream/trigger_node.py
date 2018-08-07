@@ -53,6 +53,7 @@ class ReaderNode:
             self.pool.append(t)
 
         self.reader_output = None
+        self.reader_output_lock = threading.Lock()
 
     def runtime_info(self):
         summary = {}
@@ -63,13 +64,9 @@ class ReaderNode:
         for r in self.pool:
             one_total_count = r.get_total_msg_count()
             one_in_progress_count = r.get_in_progress_msg_count()
-            one_progress_speed = r.get_progress_speed()
-
             detail[r.name] = {
                     "total": one_total_count, 
-                    "in_progress": one_in_progress_count,
-                    "speed": one_progress_speed}
-
+                    "in_progress": one_in_progress_count}
             total += one_total_count
             in_progress += one_in_progress_count
 
@@ -96,12 +93,14 @@ class ReaderNode:
         return total, detail
 
     def reader_callback(self, raw, private_data):
-        self.reader_output(raw, private_data)
+        # 多个trigger thread 只能有一个同时对外输出
+        if self.reader_output_lock.acquire():
+            self.reader_output(raw, private_data)
+        self.reader_output_lock.release()
 
     def register_output(self, callback):
         if self.reader_output:
             raise ReaderOutputAlreadyExist
-
         self.reader_output = callback
 
     def unregister_output(self, callback):
@@ -137,49 +136,15 @@ class TriggerThread(threading.Thread):
         self._in_progress_msg_count = 0
         self._in_progress_msg_count_lock = threading.Lock()
 
-        self._progress_speed = 0
-        self._progress_speed_lock = threading.Lock()
-
         self._end = threading.Event()
         self._pause = threading.Event()
         self._pause.clear()
 
         self._poll_time = 1
-        self._monitor_t = threading.Thread(target=self._monitor_thread)
-        self._monitor_t_stop = threading.Event()
-
-    def _monitor_thread(self):
-        """
-            monitor thread
-        """
-        last_finished_count = 0
-        while True:
-            time.sleep(self._poll_time)
-
-            if self._monitor_t_stop.isSet():
-                break
-
-            current_finished_count = self.get_finished_msg_count()
-            speed_count = current_finished_count - last_finished_count
-            speed = speed_count / self._poll_time
-            self._set_progress_speed(speed)
-            last_finished_count = current_finished_count
 
     #############################################################
     # progress info
-    ############################################################# 
-    def _set_progress_speed(self, speed):
-        if self._progress_speed_lock.acquire():
-            self._progress_speed = speed
-        self._progress_speed_lock.release()
-
-    def get_progress_speed(self):
-        speed = 0
-        if self._progress_speed_lock.acquire():
-            speed = self._progress_speed
-        self._progress_speed_lock.release()
-        return speed
-
+    #############################################################
     def get_in_progress_msg_count(self):
         total = self.get_total_msg_count()
         finished = self.get_finished_msg_count()
@@ -242,7 +207,7 @@ class TriggerThread(threading.Thread):
 
         self._inc_finished_msg_count()
         
-    def msg_recv_callback(self, raw, finish_ack_cb, private_data):
+    def msg_recv_callback(self, raw, finish_ack_cb=None, private_data=None):
         try:
             self._inc_total_msg_count()
 
@@ -256,7 +221,6 @@ class TriggerThread(threading.Thread):
             print_traceback()
 
     def run(self):
-        self._monitor_t.start()
 
         if callable(getattr(self._reader, 'initialize', None)):                                                                                                                                                   
             self._reader.initialize()
@@ -271,6 +235,4 @@ class TriggerThread(threading.Thread):
     def stop(self):
         self._end.set()
         self._reader.stop()
-        self._monitor_t_stop.set()
-        self._monitor_t.join()
 
