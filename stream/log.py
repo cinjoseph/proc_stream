@@ -60,7 +60,7 @@ def init_stream_handler(name, level, format_str):
 def init_logger(level, path, console_log=False, name=None):
     if not name:
         name = logger_name
-    format_str = "%(asctime)s [%(levelname)s] --> %(message)s"
+    format_str = "%(asctime)s - %(levelname)-8s --> %(message)s"
     level = get_level(level)
     logger = init_rotating_file_handler(name, level, format_str, path)
     if console_log:

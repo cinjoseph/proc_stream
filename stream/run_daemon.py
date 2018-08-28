@@ -41,11 +41,14 @@ class Server(object):
         self.loglevel   = run_config.get('LOG_LEVEL', 'info')
         self.consolelog = run_config.get('CONSOLE_LOG', False)
 
+
         conf = self.read_conf(run_config['CONF_FILE_PATH'])
         if not conf:
             raise Exception("can not get stream config!!!!")
 
-        self.sc         = StreamController(conf, hb_cb=self.heartbeat_cb)
+
+        heartbeat_interval = run_config.get('HEART_BEAT_INTERVAL', 5)
+        self.sc     = StreamController(conf, hb_inter=heartbeat_interval, hb_cb=self.heartbeat_cb)
 
     def read_conf(self, conf_path):
         f = open(conf_path, 'r')
@@ -79,7 +82,7 @@ class Server(object):
         try:
             self.sc.start()
         except Exception, e:
-            logger.error("Error Occur %s " % str(e))
+            logger.error("Error Occur: %s " % str(e))
             [logger.error(str(s)) for s in traceback.format_exc().split('\n')]
 
 

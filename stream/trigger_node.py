@@ -1,6 +1,4 @@
 # -*- coding:utf-8 -*-
-import time
-import importlib
 import threading
 from utils import print_traceback
 
@@ -8,231 +6,105 @@ from log import get_logger
 
 logger = get_logger()
 
-class ReaderEvent:
-
-    def __init__(self, raw, finish_callback, private_data):
-        self.raw = raw
-        self.private_data = private_data
-        self.finish_callback = finish_callback
-
-    def get_raw(self):
-        return self.raw
-
-    def msg_finish_ack(self):
-        self.finish_callback(self.private_data)
-
-
-def get_module_class(module_path):
-    module = module_path.rsplit('.', 1)
-    class_name = module[1]
-    module = importlib.import_module(module[0])
-    aClass = getattr(module, class_name,  None)
-    return aClass
-
 
 class ReaderOutputAlreadyExist(Exception):
     pass
 
-class ReaderNode:
 
-    def __init__(self, name, conf):
-        self.name = name
+class TriggerInitError(Exception):
 
-        module_path = conf['module'] # requisite
-        reader_cls = get_module_class(module_path)
-        if reader_cls == None:
-            raise Exception("No module %s" % module_path)
-        reader_args = conf.get("args")
+    def __init__(self, err):
+        Exception.__init__(self, err)
 
-        self.pool = []
-        pool_size = conf.get('pool_size', 1)
-        for i in range(pool_size):
-            name = self.name + ".unit%s" % (i + 1)
-            reader = reader_cls(reader_args)
-            t = TriggerThread(reader, self.reader_callback, name)
-            self.pool.append(t)
 
-        self.reader_output = None
-        self.reader_output_lock = threading.Lock()
+class TriggerNotImplement(Exception):
+    pass
 
-    def runtime_info(self):
-        summary = {}
-        detail = {}
-        total = 0
-        in_progress = 0
 
-        for r in self.pool:
-            one_total_count = r.get_total_msg_count()
-            one_in_progress_count = r.get_in_progress_msg_count()
-            detail[r.name] = {
-                    "total": one_total_count, 
-                    "in_progress": one_in_progress_count}
-            total += one_total_count
-            in_progress += one_in_progress_count
+class Trigger(object):
 
-        summary = {"total": total, "in_progress": in_progress}
+    def __init__(self, emit):
+        self.emit = emit
+        self._stop_signal = threading.Event()
 
-        return summary, detail
-
-    def total_msg_count(self):
-        total = 0
-        detail = {}
-        for r in self.pool:
-            count = r.get_total_msg_count()
-            detail[r.name] = count
-            total += count
-        return total, detail
-
-    def in_progress_msg_count(self):
-        total = 0
-        detail = {}
-        for r in self.pool:
-            count = r.get_in_progress_msg_count()
-            detail[r.name] = count
-            total += count
-        return total, detail
-
-    def reader_callback(self, raw, private_data):
-        # 多个trigger thread 只能有一个同时对外输出
-        if self.reader_output_lock.acquire():
-            self.reader_output(raw, private_data)
-        self.reader_output_lock.release()
-
-    def register_output(self, callback):
-        if self.reader_output:
-            raise ReaderOutputAlreadyExist
-        self.reader_output = callback
-
-    def unregister_output(self, callback):
-        self.reader_output = None
+    def initialize(self, trigger_conf):
+        raise TriggerNotImplement
 
     def start(self):
-        for r in self.pool:
-            r.start()
+        raise TriggerNotImplement
 
     def stop(self):
-        for r in self.pool:
-            r.stop()
-        for r in self.pool:
-            r.join()
+        self._stop_signal.set()
+
+    def emit(self, data):
+        self.emit(data)
 
 
 class TriggerThread(threading.Thread):
 
-    def __init__(self, reader, read_callback, name=None):
+    def __init__(self, trigger_cls, trigger_conf, controller_emit_callback, name=None):
         threading.Thread.__init__(self)
         self.setDaemon(1)
         self.name = name
-        self._reader = reader
 
-        self._read_callback = read_callback
+        self._trigger_cls = trigger_cls
+        self._trigger_conf = trigger_conf
 
-        self._total_msg_count = 0
-        self._total_msg_count_lock = threading.Lock()
+        self._start_success = threading.Event()
 
-        self._finished_msg_count = 0
-        self._finished_msg_count_lock = threading.Lock()
+        self._trigger = None
+        self._controller_emit_callback = controller_emit_callback
 
-        self._in_progress_msg_count = 0
-        self._in_progress_msg_count_lock = threading.Lock()
-
-        self._end = threading.Event()
-        self._pause = threading.Event()
-        self._pause.clear()
-
-        self._poll_time = 1
-
-    #############################################################
-    # progress info
-    #############################################################
-    def get_in_progress_msg_count(self):
-        total = self.get_total_msg_count()
-        finished = self.get_finished_msg_count()
-        return total - finished
-
-    #############################################################
-    # finished msg count operation
-    ############################################################# 
-    def _inc_finished_msg_count(self):
-        if self._finished_msg_count_lock.acquire():
-            self._finished_msg_count += 1
-        self._finished_msg_count_lock.release()
-
-    def get_finished_msg_count(self):
-        count = None
-        if self._finished_msg_count_lock.acquire():
-            count = self._finished_msg_count
-        self._finished_msg_count_lock.release()
-        return count
-
-    #############################################################
-    # total msg count opreation
-    ############################################################# 
-    def _inc_total_msg_count(self):
-        if self._total_msg_count_lock.acquire():
-            self._total_msg_count += 1
-        self._total_msg_count_lock.release()
-
-    def get_total_msg_count(self):
-        count = None
-        if self._total_msg_count_lock.acquire():
-            count = self._total_msg_count
-        self._total_msg_count_lock.release()
-        return count
-    
-    #############################################################
-    # 等待所有消息finish
-    ############################################################# 
-    def _wait_for_all_msg_finish(self):
-        while True:
-            count = self.get_in_progress_msg_count()
-            logger.info("%s _wait_for_all_msg_finish, unfinished: %s" %
-                    (self.name, count))
-            if 0 == count:
-                break
-            time.sleep(self._poll_time)
-
-    #############################################################
-    # main functions
-    ############################################################# 
-    def msg_finish_ack(self, private_data):
-        finish_ack_cb = private_data['finish_ack_cb']
-        private_data = private_data['private_data']
-
-        try:
-            if finish_ack_cb:
-                finish_ack_cb(private_data)
-        except:
-            print_traceback()
-
-        self._inc_finished_msg_count()
-        
-    def msg_recv_callback(self, raw, finish_ack_cb=None, private_data=None):
-        try:
-            self._inc_total_msg_count()
-
-            private_data = {
-                    "finish_ack_cb": finish_ack_cb,
-                    "private_data": private_data
-                }
-            event = ReaderEvent(raw, self.msg_finish_ack, private_data)
-            self._read_callback(raw, event)
-        except Exception, e:
-            print_traceback()
+    def trigger_emit_callback(self, raw):
+        self._controller_emit_callback(raw)
 
     def run(self):
-
-        if callable(getattr(self._reader, 'initialize', None)):                                                                                                                                                   
-            self._reader.initialize()
-
-        self._reader.start(self.msg_recv_callback)
-        self._wait_for_all_msg_finish()
-
-        if callable(getattr(self._reader, 'finish', None)):                                                                                                                                                   
-            self._reader.finish()
-
+        try:
+            self._trigger = self._trigger_cls(self.trigger_emit_callback)
+        except:
+            print_traceback(logger)
+            exit()
+        self._trigger.initialize(self._trigger_conf)
+        self._start_success.set()
+        self._trigger.start()
 
     def stop(self):
-        self._end.set()
-        self._reader.stop()
+        if self._trigger:
+            self._trigger.stop()
+
+
+class TriggerNodeController:
+
+    def __init__(self, name, emit, trigger_cls, trigger_conf, pool_size=1):
+        self.name = name
+
+        self._pool = []
+        for i in range(pool_size):
+            name = self.name + "-unit" + str(i+1)
+            t = TriggerThread(trigger_cls, trigger_conf, self.controller_emit_callback, name=name)
+            self._pool.append(t)
+
+        self._emit = emit
+        self._emit_lock = threading.Lock()
+
+    def controller_emit_callback(self, raw):
+        # 多个trigger thread 只能有一个同时对外输出
+        if self._emit_lock.acquire():
+            self._emit(raw)
+        self._emit_lock.release()
+
+    def start(self):
+        logger.debug("Start Trigger %s" % self.name)
+        for trigger in self._pool:
+            trigger.start()
+            logger.debug("  |- Start Trigger %s" % trigger.name)
+            if not trigger._start_success.wait(10):
+                raise TriggerInitError("Trigger %s init timeout" % trigger.name)
+        logger.debug(" --- " )
+
+    def stop(self):
+        for r in self._pool:
+            r.stop()
+        for r in self._pool:
+            r.join()
 

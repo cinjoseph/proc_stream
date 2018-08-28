@@ -3,7 +3,7 @@
 import pika
 import json
 
-from stream.proc_node import PROC_STOP, PROC_CONTINUE, PROC_UPDATE
+from stream.process_node import PROC_STOP, PROC_CONTINUE, PROC_UPDATE
 from stream.log import get_logger
 
 logger = get_logger()

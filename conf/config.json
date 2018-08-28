@@ -1,21 +1,25 @@
 {
-    "ReaderTemplate": {
-        "testreader": { 
-            "module": "stream.build_in_triggers.test_reader.TestReader"
+    "TriggerTemplate": {
+        "TimerTrigger": {
+            "module": "stream.build_in_triggers.test_trigger.TimerTrigger",
+            "args": {
+                "sleep_time": 1
+            }
         }
     },
 
     "NodeTemplate": {
-        "Build_in_SyncOutput" : {
-            "module": "plugin.nodes.testnode.SyncOutput",
-            "pool_size": 1,
-            "args": {
-                "msg": "hello world"
-            }
+         "TestNode" : {
+             "module": "stream.build_in_nodes.test_node.PrintNode",
+             "pool_size": 3,
+             //"mutli_type": "single",
+             "mutli_type": "thread",
+             "args": {
+                 "msg": "hello world"
+             }
         },
-
-        "Plugin_SyncOutput" : {
-            "module": "plugin.nodes.testnode.SyncOutput",
+        "TestNode2" : {
+            "module": "stream.build_in_nodes.test_node.PrintNode",
             "pool_size": 1,
             "args": {
                 "msg": "hello world"
@@ -25,8 +29,8 @@
 
     "Streams": {
         "TestStream": {
-            "reader": "testreader",
-            "stream": ["Build_in_SyncOutput", "Plugin_SyncOutput"]
+            "trigger": ["TimerTrigger"],
+            "process": ["TestNode"]
         }
     }
 }
