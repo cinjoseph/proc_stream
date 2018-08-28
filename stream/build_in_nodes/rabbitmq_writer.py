@@ -3,21 +3,20 @@
 import pika
 import json
 
-from stream.process_node import PROC_STOP, PROC_CONTINUE, PROC_UPDATE
+from stream.process_node import HandlerProcessNode
+
 from stream.log import get_logger
 
 logger = get_logger()
 
 
-class RabbitMqWriter:
+class RabbitMqWriter(HandlerProcessNode):
 
-    _type = "_sync"
-    _node_type = "output"
 
     def __init__(self, conf):
         self.url, self.exchange = tuple(conf['url'].rsplit('.', 1))
 
-    def initialize(self):
+    def _init(self):
         self._connection = pika.BlockingConnection(pika.URLParameters(self.url))
         self._channel = self._connection.channel()
 
@@ -30,11 +29,10 @@ class RabbitMqWriter:
             self._channel.basic_publish(exchange=self.exchange, routing_key='', body=data)
 
     def proc(self, data):
+        self.emit(data)
         data = json.dumps(data)
         self.send2mq(data)
         logger.info("send msg to mq")
 
-        return PROC_CONTINUE, None
-
-    def finish(self):
+    def _fini(self):
         self._connection.close()
