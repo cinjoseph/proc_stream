@@ -10,11 +10,13 @@
 	│   └── run.cfg				# 运行配置
 	├──/plugin		# 外置插件，可用户自定义 
 	│   ├──/nodes				# 用户自定义 节点 代码
-	│   └──/triggers			# 用户自定义 触发器 代码
+	│   ├──/triggers			# 用户自定义 触发器 代码
+	│   └──/heatbeats			# 用户自定义 心跳 代码
 	├── run			# 启动脚本
 	├──/stream		# 程序代码
 	│   ├──/build_in_nodes		# 内置 节点 代码
-	│   ├──/build_in_triggers	# 内置 触发器代码
+	│   ├──/build_in_triggers	# 内置 触发器 代码
+	│   └──/build_in_heartbeats	# 内置 心跳 代码
 	└──/var
 	    ├──/log		# 日志目录
 	    └──/run		# pidfile目录
@@ -23,12 +25,11 @@
 
 ## 处理逻辑
 	 
-	 Event --> Trigger --> handler_Node1 -> handler_Node2 -> output_Node3 --\
-	             ^         \ ***************** Stream ***************** /   |
-	             |                                                          |
-	             |                                                          |
-	             |                                                          |
-	             \--------------------------Notice--------------------------/
+                                      output_Node2
+                                           /\  
+				                           ||	 
+	 Event --> Trigger --> handler_Node1 --  --> handler_Node3 --> End
+	                       \ *********** Stream *********** /   
     									
 	
 	ProcStream的逻辑单元分为 Event、Trigger、Stream、 Node
@@ -45,57 +46,95 @@
 	
 conf/run.cfg
 
-	base_dir = '/path_to_your_project_dir'
+	# -*- coding:utf-8 -*-
+	import os
+	
+	abs_path = os.path.abspath(__file__).rsplit('/', 2)[0]
+	base_dir = abs_path # 自动识别根目录
+	
 	STDIN   = "/dev/null"
 	STDOUT  = base_dir + '/var/log/err.log'
 	STDERR  = base_dir + '/var/log/err.log'
 	DEFAULT_STDERR = base_dir + '/var/log/err.log'
 	
+	HEART_BEAT_INTERVAL = 1		# 心跳函数调用频率
+	STREAM_CONTROLLER_POLL_TIME = 0.1		# stream controller 获取runtime info 间隔
+	
 	PID_FILE = base_dir + '/var/run/sdp_id_engine.pid'
 	PID_FILE_TIMEOUT = 3
 	
 	LOG_FILE = base_dir + '/var/log/run.log'
-	LOG_LEVEL = "info"	# debug info warning error
+	LOG_LEVEL = "debug"
 	
 	CONF_FILE_PATH = base_dir + '/conf/config.json' # 指定stream conf 位置
 	
+<br>
+	
 conf/config.json
 
-	{
-		// trigger 模板
-	    "TriggerTemplate": { 
-	        "testtrigger": {
-	            "module": "stream.build_in_triggers.test_reader.TestReader"
-	        }
-	    },
-	    
-		// Node 模板
-	    "NodeTemplate": {
-	        "Build_in_SyncOutput" : {
-		        // Node使用的Module地址
-	            "module": "plugin.nodes.testnode.SyncOutput", 
-	            // 线程池大小，默认为1
-	            "pool_size": 1,	
-	            // node所需参数
-	            "args": { 
-	                "msg": "hello world"
-	            }
-	        }	
-	    },
-	
-	    "Streams": {
-	    	// 定义流
-	    	"TestStream": {
-	           "trigger": "testtrigger",
-	           "stream": ["Build_in_SyncOutput"]
-	       }，
-	       // 当然可以定义多条流
-	      	"TestStream": {
-	           "trigger": "testtrigger",
-	           "stream": ["Build_in_SyncOutput"]
-	       }
-	    }
-	}
+
+    {
+	     // 心跳调用配置块
+	     // 每次心跳会调用在下面配置的所有模块    
+        "HeartBeat":{
+           "LoggerHeartBeat": {
+                "module": "stream.build_in_heartbeats.logger_heart_beat.LoggerHeartBeat"
+            }
+        },
+
+		 // 触发器模板 
+        "TriggerTemplate": {
+            "RabbitMQTrigger": {
+                "module": "stream.build_in_triggers.rmq_trigger.RabbitMQTrigger",
+                "args":{
+                    "url": "amqp://user:pass@host:port/%2F.queue",
+                    "need_ack": false,
+                    "mode": "normal"
+                }
+            },
+            "TimerTrigger": {
+                "module": "stream.build_in_triggers.test_trigger.TimerTrigger",
+                "pool_size" : 2,
+                "args": {
+                    "poll_time": 1
+                }
+            }
+        },
+
+		 // 处理节点模板
+        "NodeTemplate": {
+
+            "PrintNode" : {
+                "module": "stream.build_in_nodes.test_node.PrintNode",
+            },
+            "AddTailNode" : {
+                "module": "stream.build_in_nodes.test_node.AddTailNode",
+                "pool_size": 1
+            },
+            "DelayNode" : {
+                "module": "stream.build_in_nodes.test_node.DelayNode",
+                "pool_size": 1,
+                "mode": "thread",
+                "args":{
+                    "loop": 5
+                }
+
+            }
+        },
+        
+		 // 流定义
+        "Streams": {
+            "TestStream": {
+                "trigger": ["TimerTrigger"],
+                "process": ["AddTailNode", "DelayNode", "PrintNode"]
+            },
+            "RmqTestStream": {
+                "trigger": ["RabbitMQTrigger"],
+                "process": ["AddTailNode", "DelayNode", "PrintNode"]
+            }
+        }
+    }
+
 
 <br>
 
