@@ -193,7 +193,6 @@ class ProcNodeController:
             'thread'    : (ProcessNodeThread, pool_size),
             'process'   : (None, pool_size)
         }
-        print node_mode_set
         proc_node_cls, pool_size = node_mode_set.get(mode, (None, None))
         if not proc_node_cls:
             raise Exception("Node mode %s is not supprot yet!" % mode)

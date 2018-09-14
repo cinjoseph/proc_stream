@@ -40,18 +40,16 @@ class Trigger(object):
         self.emit(data)
 
 
+
 class TriggerThread(threading.Thread):
 
     def __init__(self, trigger_cls, trigger_conf, controller_emit_callback, name=None):
         threading.Thread.__init__(self)
         self.setDaemon(1)
         self.name = name
-
         self._trigger_cls = trigger_cls
         self._trigger_conf = trigger_conf
-
         self._start_success = threading.Event()
-
         self._trigger = None
         self._controller_emit_callback = controller_emit_callback
 
@@ -71,6 +69,7 @@ class TriggerThread(threading.Thread):
     def stop(self):
         if self._trigger:
             self._trigger.stop()
+
 
 
 class TriggerNodeController:
