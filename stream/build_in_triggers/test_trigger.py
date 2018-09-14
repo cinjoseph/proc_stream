@@ -1,14 +1,20 @@
 import time
+import threading
 from stream.trigger_node import Trigger
 
 class TimerTrigger(Trigger):
 
-    def initialize(self, conf):
-        self.sleep_time = conf.get('sleep_time', 1)
+    def _init(self, conf):
+        self.poll_time = conf.get('poll_time', 1)
+        self._stop_event = threading.Event()
+        self._stop_event.clear()
 
     def start(self):
         count = 0
-        while not self._stop_signal.is_set():
+        while not self._stop_event.is_set():
             count +=1
             self.emit(count)
-            time.sleep(self.sleep_time)
+            time.sleep(self.poll_time)
+
+    def _stop(self):
+        self._stop_event.set()

@@ -7,12 +7,12 @@ from log import get_logger
 logger = get_logger()
 
 
+
 class ReaderOutputAlreadyExist(Exception):
     pass
 
 
 class TriggerInitError(Exception):
-
     def __init__(self, err):
         Exception.__init__(self, err)
 
@@ -23,52 +23,71 @@ class TriggerNotImplement(Exception):
 
 class Trigger(object):
 
-    def __init__(self, emit):
+    def __init__(self, name, conf, emit):
+        self.name = name
+        self.conf = conf
         self.emit = emit
-        self._stop_signal = threading.Event()
 
-    def initialize(self, trigger_conf):
-        raise TriggerNotImplement
+    def initialize(self):
+        try:
+            self._init(self.conf)
+        except TriggerNotImplement:
+            pass
 
-    def start(self):
-        raise TriggerNotImplement
+    def finish(self):
+        try:
+            self._fini()
+        except TriggerNotImplement:
+            pass
 
     def stop(self):
-        self._stop_signal.set()
+        try:
+            self._stop()
+        except TriggerNotImplement:
+            pass
 
     def emit(self, data):
         self.emit(data)
 
+    def start(self):
+        raise TriggerNotImplement
+
+    def _init(self, conf):
+        raise TriggerNotImplement
+
+    def _fini(self):
+        raise TriggerNotImplement
+
+    def _stop(self):
+        raise TriggerNotImplement
 
 
-class TriggerThread(threading.Thread):
 
-    def __init__(self, trigger_cls, trigger_conf, controller_emit_callback, name=None):
-        threading.Thread.__init__(self)
-        self.setDaemon(1)
-        self.name = name
-        self._trigger_cls = trigger_cls
-        self._trigger_conf = trigger_conf
+class TriggerThread:
+
+    def __init__(self, cls, args, controller_emit_callback, name=None):
+        self.name = name if name else self.name
+        self._trigger = cls(name, args, self.trigger_emit_callback)
         self._start_success = threading.Event()
-        self._trigger = None
         self._controller_emit_callback = controller_emit_callback
+        self.thread = threading.Thread(target=self.thread_run)
 
     def trigger_emit_callback(self, raw):
         self._controller_emit_callback(raw)
 
-    def run(self):
-        try:
-            self._trigger = self._trigger_cls(self.trigger_emit_callback)
-        except:
-            print_traceback(logger)
-            exit()
-        self._trigger.initialize(self._trigger_conf)
+    def thread_run(self):
+        self._trigger.initialize()
         self._start_success.set()
         self._trigger.start()
+        self._trigger.finish()
+
+    def start(self):
+        self.thread.start()
 
     def stop(self):
-        if self._trigger:
+        if self._start_success.is_set():
             self._trigger.stop()
+            self.thread.join()
 
 
 
@@ -93,17 +112,17 @@ class TriggerNodeController:
         self._emit_lock.release()
 
     def start(self):
-        logger.debug("Start Trigger %s" % self.name)
+        logger.info("Start Trigger %s" % self.name)
         for trigger in self._pool:
             trigger.start()
-            logger.debug("  |- Start Trigger %s" % trigger.name)
-            if not trigger._start_success.wait(10):
+            logger.info("  |- Start Trigger Unit %s id:%s" % (trigger.name, id(trigger)))
+            if not trigger._start_success.wait(5):
                 raise TriggerInitError("Trigger %s init timeout" % trigger.name)
-        logger.debug(" --- " )
+        logger.info(" --- " )
 
     def stop(self):
-        for r in self._pool:
-            r.stop()
-        for r in self._pool:
-            r.join()
+        logger.info("Stop Trigger %s" % self.name)
+        for trigger in self._pool:
+            trigger.stop()
+            logger.info("  |- Stop Trigger Unit %s id:%s" % (trigger.name, id(trigger)))
 

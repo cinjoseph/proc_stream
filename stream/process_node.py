@@ -60,6 +60,7 @@ class OutputProcessNode(object):
         raise NodeNotImplement
 
 
+
 class HandlerProcessNode(object):
 
     def __init__(self, name, conf, emit):
@@ -123,13 +124,10 @@ class ProcessNodeCoroutine:
 
 
 
-class ProcessNodeThread(threading.Thread):
+class ProcessNodeThread():
 
     def __init__(self, cls, args, controller_emit_cb, poll_timeout=1, name=None):
-        threading.Thread.__init__(self)
-        self.setDaemon(1)
-        if name:
-            self.name = name
+        self.name = name if name else self.name
         self._poll_timeout = poll_timeout
         self._event_queue = Queue.Queue()
         self._dismissed = threading.Event()
@@ -161,14 +159,14 @@ class ProcessNodeThread(threading.Thread):
         self.thread.start()
 
     def stop(self):
-        self._dismissed.set()
-        self.thread.join()
+        if not self._dismissed.is_set():
+            self._dismissed.set()
+            self.thread.join()
 
 
 class ProcessNodeProcess():
     # TODO: 实现进程节点
     pass
-
 
 
 

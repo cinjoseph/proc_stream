@@ -4,13 +4,12 @@ import re
 import time
 import json
 import signal
-import pprint
 import traceback
 
 from daemon import runner
 
 from stream import StreamController
-from log import init_logger, get_logger
+from log import init_logger
 
 
 def remove_json_commets(conf_str):
@@ -45,8 +44,10 @@ class Server(object):
         if not conf:
             raise Exception("can not get stream config!!!!")
 
+        poll_time = run_config.get('STREAM_CONTROLLER_POLL_TIME', 1)
         heartbeat_interval = run_config.get('HEART_BEAT_INTERVAL', 5)
-        self.sc     = StreamController(conf, hb_inter=heartbeat_interval, hb_cb=self.heartbeat_cb)
+
+        self.stream_ctrl = StreamController(conf, poll_time=poll_time, hb_inter=heartbeat_interval)
 
     def read_conf(self, conf_path):
         f = open(conf_path, 'r')
@@ -55,17 +56,11 @@ class Server(object):
         conf = remove_json_commets(conf)
         return json.loads(conf)
 
-    def heartbeat_cb(self, infos):
-        logger = get_logger()
-        s = pprint.pformat(infos)
-        # for s in s.replace('\r', "").split('\n'):
-        # logger.info("Server Runtime Info:\n%s" % s)
-
     def init_signal_handler(self, logger=None):
         def sig_handler(signum, frame):
             if logger:
                 logger.warning("Recv signal %s %s" % (signum, frame))
-            self.sc.stop()
+            self.stream_ctrl.stop()
 
         signal.signal(signal.SIGHUP, sig_handler)
         signal.signal(signal.SIGINT, sig_handler)
@@ -78,7 +73,7 @@ class Server(object):
         self.init_signal_handler(logger)
 
         try:
-            self.sc.start()
+            self.stream_ctrl.start()
         except Exception, e:
             logger.error("Error Occur: %s " % str(e))
             [logger.error(str(s)) for s in traceback.format_exc().split('\n')]

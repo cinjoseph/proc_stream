@@ -7,18 +7,11 @@ import threading
 import importlib
 from process_node import ProcNodeController
 from trigger_node import TriggerNodeController
-from utils import print_traceback
-
+from utils import get_module_class
 import log
+
+
 logger = log.get_logger()
-
-
-def get_module_class(module_path):
-    module = module_path.rsplit('.', 1)
-    class_name = module[1]
-    module = importlib.import_module(module[0])
-    aClass = getattr(module, class_name,  None)
-    return aClass
 
 
 class TriggerControllerFactory:
@@ -48,7 +41,6 @@ class TriggerControllerFactory:
         return trigger_controller
 
 
-
 class ProcNodeFactory:
 
     def __init__(self, conf):
@@ -74,14 +66,12 @@ class ProcNodeFactory:
         return node
 
 
-
 class StreamEvent:
 
     def __init__(self, data, stream_id, pos=-1):
         self.data = data
         self.stream_id = stream_id
         self.pos = pos
-
 
 
 class Stream():
@@ -91,8 +81,6 @@ class Stream():
 
         self._event_queue = Queue.Queue()
         self._stream_queue_lock = threading.Lock()
-
-        self._stop_signal = threading.Event()
 
         emit = None
         self.stream_process = []
@@ -130,60 +118,97 @@ class Stream():
             trigger.stop()
         for process in self.stream_process[::-1]:
             process.stop()
-        self._stop_signal.set()
+
+
+class StreamHeartBeatNotImplement(Exception):
+    pass
+
+
+class StreamHeartBeat(object):
+
+    def __init__(self, args):
+        self.args = args
+
+    def intialize(self):
+        self._init(self.args)
+
+    def _init(self, args):
+        raise StreamHeartBeatNotImplement
+
+    def heart_beat(self, infos):
+        raise StreamHeartBeatNotImplement
+
+    def _fini(self):
+        raise StreamHeartBeatNotImplement
+
 
 
 class StreamController(object):
 
-    def __init__(self, conf, hb_inter=5, hb_cb=None):
-        """
-
-        :param conf: 流事件的配置
-        :param hb_cb: 心跳处理函数
-        """
+    def __init__(self, conf, poll_time=1, hb_inter=5):
         self.loop_stop  = threading.Event()
         self.conf       = conf
-        self.hb_cb      = hb_cb
-        self.hb_inter   = hb_inter
+        self.poll_time  = poll_time
+        self.heart_beat_poll_count = int(float(hb_inter)/float(poll_time))
 
     def start(self):
         node_template = self.conf['NodeTemplate']
         reader_template = self.conf['TriggerTemplate']
         streams_conf = self.conf['Streams']
+        heart_beat_conf = self.conf['HeartBeat']
 
         streams = []
+        heart_beats = []
 
         logger.info("--------------------------------")
         logger.info("All Streams Start !!!")
 
+        # 初始化Stream实例列表
         for stream_name, stream_conf in streams_conf.items():
             logger.info("Init stream %s" % stream_name)
             s = Stream(stream_name, stream_conf, reader_template, node_template)
             streams.append(s)
 
-        # start streams
-        for s in streams:
-            logger.info("Start stream %s !!!" % stream_name)
-            s.start()
+
+        # 初始化所有心跳回调
+        for hb_name, hb_conf in heart_beat_conf.items():
+            logger.info("Init Heart %s" % hb_name)
+            cls = get_module_class(hb_conf['module'])
+            if not cls:
+                raise Exception("HeartBeat Module %s doesn't exist")
+            hb_instance = cls(hb_conf.get('args', {}))
+            heart_beats.append(hb_instance)
+
+        # 启动所有Stream
+        try:
+            for s in streams:
+                logger.info("Start stream %s !!!" % stream_name)
+                s.start()
+        except Exception, e:
+            logger.error("Can not start stream '%s', reason: %s" % (stream_name, e))
+            for s in streams:
+                s.stop()
+                logger.info("stop stream %s !!!" % stream_name)
+            logger.info("All Streams Stop !!!")
+            return
 
         count = 0
         while not self.loop_stop.is_set():
-            if count == self.hb_inter and self.hb_cb:
+            time.sleep(self.poll_time)
+            if count == self.heart_beat_poll_count:
                 count = 0
-                # self.hb_cb([ s.get_info() for s in streams ])
+                # infos = [ s.get_info() for s in streams ]
+                for hb in heart_beats:
+                    hb.heartbeat({"test": "test stream info"})
                 logger.info("Do Heart Beat, need exit now? %s" % (self.loop_stop.is_set()))
             count += 1
-            time.sleep(1)
 
         # stop streams
         for s in streams:
             s.stop()
             logger.info("stop stream %s !!!" % stream_name)
-
         logger.info("All Streams Stop !!!")
 
     def stop(self):
         self.loop_stop.set()
-
-
 

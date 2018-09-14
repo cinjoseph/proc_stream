@@ -3,29 +3,22 @@ import pika
 import time
 import threading
 from functools import partial
+from stream.trigger_node import Trigger
 
 
-class RabbitMQReader():
 
-    def __init__(self, conf):
+class RabbitMQTrigger(Trigger):
+
+    def _init(self, conf):
         self.url, self.queue = tuple(conf['url'].rsplit('.', 1))
         self._need_ack = conf.get('need_ack', False)
-        self._mode = conf.get('mode', "normal")# normal / fullspeed
-
-        self._need_stop = threading.Event()
-
+        self._mode = conf.get('mode', 'normal')  # normal / fullspeed
+        self._normal_mode_stop_signal = threading.Event()
         self._channel_lock = threading.Lock()
-        self._connection = None
-        self._channel = None
-
-    #############################################################
-    # initialize & finish
-    ############################################################# 
-    def initialize(self):
         self._connection = pika.BlockingConnection(pika.URLParameters(self.url))
         self._channel = self._connection.channel()
 
-    def finish(self):
+    def _fini(self):
         self._channel.close()
         self._connection.close()
 
@@ -40,9 +33,9 @@ class RabbitMQReader():
             elif "fullspeed" == self._mode:
                 self.fullspeed_mode_msg_finish_ack(delivery_tag)
 
-    def msg_recv_handler(self, recv_callback, channel, method, header, body):
+    def msg_recv_handler(self, channel, method, header, body):
         private_data = method.delivery_tag
-        recv_callback(body, self.msg_finish_ack, private_data)
+        self.emit(body, self.msg_finish_ack, private_data)
 
     #############################################################
     # full speed mode 处理函数 
@@ -59,10 +52,9 @@ class RabbitMQReader():
             self._channel.stop_consuming()
         self._connection.add_callback_threadsafe(stop_callback)
 
-    def fullspeed_mode_start(self, recv_callback):
-        cb = partial(self.msg_recv_handler, recv_callback)
-        self._consume_tag = self._channel.basic_consume(cb,
-                self.queue, no_ack=not self._need_ack)
+    def fullspeed_mode_start(self):
+        cb = partial(self.msg_recv_handler)
+        _consume_tag = self._channel.basic_consume(cb, self.queue, no_ack=not self._need_ack)
         self._channel.start_consuming()
 
     #############################################################
@@ -74,29 +66,26 @@ class RabbitMQReader():
         self._channel_lock.release()
 
     def normal_mode_stop(self):
-        self._need_stop.set()
+        self._normal_mode_stop_signal.set()
 
-    def normal_mode_start(self, recv_callback):
-        self._need_stop.clear()
-        while not self._need_stop.isSet():
+    def normal_mode_start(self):
+        while not self._normal_mode_stop_signal.is_set():
+            method_frame, header_frame, body = None, None, None
             if self._channel_lock.acquire():
-                method_frame, header_frame, body = self._channel.basic_get(
-                        self.queue, no_ack=not self._need_ack)
+                method_frame, header_frame, body = self._channel.basic_get(self.queue, no_ack=not self._need_ack)
             self._channel_lock.release()
-
             if method_frame:
-                self.msg_recv_handler(recv_callback, self._channel, 
-                        method_frame, header_frame, body)
+                self.msg_recv_handler(self._channel, method_frame, header_frame, body)
             else:
                 time.sleep(0.5)
 
-    def start(self, recv_callback):
+    def start(self):
         if self._mode == "normal":
-            self.normal_mode_start(recv_callback)
+            self.normal_mode_start()
         if self._mode == "fullspeed":
-            self.fullspeed_mode_start(recv_callback)
+            self.fullspeed_mode_start()
 
-    def stop(self):
+    def _stop(self):
         if "normal" == self._mode:
             self.normal_mode_stop()
         elif "fullspeed" == self._mode:
