@@ -4,7 +4,6 @@
 import time
 import Queue
 import threading
-import importlib
 from process_node import ProcNodeController
 from trigger_node import TriggerNodeController
 from utils import get_module_class
@@ -12,6 +11,28 @@ import log
 
 
 logger = log.get_logger()
+
+
+class StreamHeartBeatNotImplement(Exception):
+    pass
+
+
+class StreamHeartBeat(object):
+
+    def __init__(self, args):
+        self.args = args
+
+    def intialize(self):
+        self._init(self.args)
+
+    def _init(self, args):
+        raise StreamHeartBeatNotImplement
+
+    def heart_beat(self, infos):
+        raise StreamHeartBeatNotImplement
+
+    def _fini(self):
+        raise StreamHeartBeatNotImplement
 
 
 class TriggerControllerFactory:
@@ -108,6 +129,7 @@ class Stream():
             self.stream_trigger.append(trigger)
 
     def start(self):
+        # 从最后一个开始启动
         for process in self.stream_process[::-1]:
             process.start()
         for trigger in self.stream_trigger:
@@ -116,31 +138,18 @@ class Stream():
     def stop(self):
         for trigger in self.stream_trigger:
             trigger.stop()
-        for process in self.stream_process[::-1]:
+        # 从第一个开始停止
+        for process in self.stream_process:
             process.stop()
 
-
-class StreamHeartBeatNotImplement(Exception):
-    pass
-
-
-class StreamHeartBeat(object):
-
-    def __init__(self, args):
-        self.args = args
-
-    def intialize(self):
-        self._init(self.args)
-
-    def _init(self, args):
-        raise StreamHeartBeatNotImplement
-
-    def heart_beat(self, infos):
-        raise StreamHeartBeatNotImplement
-
-    def _fini(self):
-        raise StreamHeartBeatNotImplement
-
+    def runtime_info(self):
+        info = {'trigger':{}, 'process': {}}
+        for trigger in self.stream_trigger:
+            info['trigger'][trigger.name] = {'emit': trigger.runtime_info()}
+        for process in self.stream_process[::-1]:
+            recv_count, emit_count = process.runtime_info()
+            info['process'][process.name] = {'emit': emit_count, 'recv': recv_count}
+        return info
 
 
 class StreamController(object):
@@ -197,9 +206,9 @@ class StreamController(object):
             time.sleep(self.poll_time)
             if count == self.heart_beat_poll_count:
                 count = 0
-                # infos = [ s.get_info() for s in streams ]
+                info = [ s.runtime_info() for s in streams ]
                 for hb in heart_beats:
-                    hb.heartbeat({"test": "test stream info"})
+                    hb.heartbeat(info)
                 logger.info("Do Heart Beat, need exit now? %s" % (self.loop_stop.is_set()))
             count += 1
 

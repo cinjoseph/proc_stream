@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-__author__ = "chenjianing"
+__author__ = "cinojseph"
 
 # standard library modules
+import time
 import Queue
 import threading
 
@@ -159,6 +160,12 @@ class ProcessNodeThread():
         self.thread.start()
 
     def stop(self):
+        while True:
+            logger.info( "%s _wait_for_all_msg_finish, unfinished: %s" % (self.name, self._event_queue.qsize()))
+            time.sleep(self._poll_timeout)
+            if 0 == self._event_queue.qsize():
+                break
+
         if not self._dismissed.is_set():
             self._dismissed.set()
             self.thread.join()
@@ -186,6 +193,10 @@ class ProcNodeController:
         self._poll_timeout = poll_timeout
         self._is_output = True if issubclass(node_cls, OutputProcessNode) else False
 
+        self._emit_count = 0
+
+        self._recv_count = 0
+
         node_mode_set = {
             'single'    : (ProcessNodeCoroutine, 1),
             'thread'    : (ProcessNodeThread, pool_size),
@@ -205,9 +216,11 @@ class ProcNodeController:
         if self._emit:
             if self._emit_lock.acquire():
                 self._emit(event)
+                self._emit_count += 1
             self._emit_lock.release()
         else:
-            logger.debug("%s next emit is None, Finished Process" % self.name)
+            # logger.debug("%s next emit is None, Finished Process" % self.name)
+            pass
 
     def input(self, event):
         if 0 == len(self._pool):
@@ -217,6 +230,7 @@ class ProcNodeController:
         self._pool_index += 1
         if self._pool_index > len(self._pool) - 1:
             self._pool_index = 0
+        self._recv_count += 1
 
         # 如果是输出节点，直接返回将Event返回
         if self._is_output:
@@ -235,4 +249,7 @@ class ProcNodeController:
         for process_node in self._pool:
             process_node.stop()
             logger.debug("  |- Stop Proc Unit %s id:%s" % (process_node.name, id(process_node)))
+
+    def runtime_info(self):
+        return self._recv_count, self._emit_count
 

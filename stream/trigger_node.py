@@ -105,9 +105,12 @@ class TriggerNodeController:
         self._emit = emit
         self._emit_lock = threading.Lock()
 
+        self._emit_count = 0
+
     def controller_emit_callback(self, raw):
         # 多个trigger thread 只能有一个同时对外输出
         if self._emit_lock.acquire():
+            self._emit_count += 1
             self._emit(raw)
         self._emit_lock.release()
 
@@ -125,4 +128,7 @@ class TriggerNodeController:
         for trigger in self._pool:
             trigger.stop()
             logger.info("  |- Stop Trigger Unit %s id:%s" % (trigger.name, id(trigger)))
+
+    def runtime_info(self):
+        return self._emit_count
 

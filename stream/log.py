@@ -1,7 +1,7 @@
 
 # -*- coding: utf-8 -*-
 
-__author__ = "chenjianing"
+__author__ = "cinjoseph"
 
 # standard library modules
 import logging
