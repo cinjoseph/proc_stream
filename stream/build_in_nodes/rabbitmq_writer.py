@@ -12,11 +12,8 @@ logger = get_logger()
 
 class RabbitMqWriter(HandlerProcessNode):
 
-
-    def __init__(self, conf):
-        self.url, self.exchange = tuple(conf['url'].rsplit('.', 1))
-
-    def _init(self):
+    def init(self, node_conf):
+        self.url, self.exchange = tuple(node_conf['url'].rsplit('.', 1))
         self._connection = pika.BlockingConnection(pika.URLParameters(self.url))
         self._channel = self._connection.channel()
 
@@ -34,5 +31,5 @@ class RabbitMqWriter(HandlerProcessNode):
         self.send2mq(data)
         logger.info("send msg to mq")
 
-    def _fini(self):
+    def fini(self):
         self._connection.close()

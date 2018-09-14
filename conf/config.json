@@ -9,28 +9,30 @@
     },
 
     "NodeTemplate": {
-         "TestNode" : {
+         "PrintNode1" : {
+             "module": "stream.build_in_nodes.test_node.PrintNode",
+        },
+        "PrintNode2" : {
              "module": "stream.build_in_nodes.test_node.PrintNode",
              "pool_size": 3,
-             //"mutli_type": "single",
-             "mutli_type": "thread",
-             "args": {
-                 "msg": "hello world"
-             }
+             "mode": "thread"
         },
-        "TestNode2" : {
-            "module": "stream.build_in_nodes.test_node.PrintNode",
-            "pool_size": 1,
-            "args": {
-                "msg": "hello world"
-            }
+         "AddTailNode1" : {
+            "module": "stream.build_in_nodes.test_node.AddTailNode",
+            "pool_size": 1
+        },
+        "AddTailNode2" : {
+            "module": "stream.build_in_nodes.test_node.AddTailNode",
+            "pool_size": 1
         }
+
+
     },
 
     "Streams": {
         "TestStream": {
             "trigger": ["TimerTrigger"],
-            "process": ["TestNode"]
+            "process": ["AddTailNode1", "PrintNode1", "AddTailNode2", "PrintNode2"]
         }
     }
 }

@@ -48,6 +48,7 @@ class TriggerControllerFactory:
         return trigger_controller
 
 
+
 class ProcNodeFactory:
 
     def __init__(self, conf):
@@ -65,12 +66,13 @@ class ProcNodeFactory:
         node_args = conf.get("args", {})
         pool_size = conf.get('pool_size', 1)
         poll_timeout = conf.get('poll_timeout', 1)
-        mutli_type = conf.get('mutli_type', 'single')
+        mode = conf.get('mode', 'single')
 
         node_name = stream_name + "." +node_name
         node = ProcNodeController(node_name, node_cls, node_args, emit,
-                pool_size=pool_size, poll_timeout=poll_timeout, mutli_type=mutli_type)
+                pool_size=pool_size, poll_timeout=poll_timeout, mode=mode)
         return node
+
 
 
 class StreamEvent:
@@ -79,6 +81,7 @@ class StreamEvent:
         self.data = data
         self.stream_id = stream_id
         self.pos = pos
+
 
 
 class Stream():

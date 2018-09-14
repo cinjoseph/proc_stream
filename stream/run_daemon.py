@@ -41,11 +41,9 @@ class Server(object):
         self.loglevel   = run_config.get('LOG_LEVEL', 'info')
         self.consolelog = run_config.get('CONSOLE_LOG', False)
 
-
         conf = self.read_conf(run_config['CONF_FILE_PATH'])
         if not conf:
             raise Exception("can not get stream config!!!!")
-
 
         heartbeat_interval = run_config.get('HEART_BEAT_INTERVAL', 5)
         self.sc     = StreamController(conf, hb_inter=heartbeat_interval, hb_cb=self.heartbeat_cb)

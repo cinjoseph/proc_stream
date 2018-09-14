@@ -20,6 +20,9 @@ class NodeNotImplement(Exception):
     pass
 
 
+class UnknownNodeType(Exception):
+    pass
+
 class ProcThreadInitError(Exception):
 
     def __init__(self, err):
@@ -28,7 +31,7 @@ class ProcThreadInitError(Exception):
 
 class OutputProcessNode(object):
 
-    def __init__(self, name, conf):
+    def __init__(self, name, conf, emit=None):
         self.name = name
         self.conf = conf
         self.is_init = False
@@ -79,6 +82,9 @@ class HandlerProcessNode(object):
         except NodeNotImplement:
             pass
 
+    def emit(self, data):
+        self.emit(data)
+
     def _init(self, conf):
         raise NodeNotImplement
 
@@ -88,8 +94,6 @@ class HandlerProcessNode(object):
     def proc(self, data):
         raise NodeNotImplement
 
-    def emit(self, data):
-        self.emit(data)
 
 
 class ProcessNodeCoroutine:
@@ -116,6 +120,7 @@ class ProcessNodeCoroutine:
     def stop(self):
         self.processer.finish()
         self._dismissed.set()
+
 
 
 class ProcessNodeThread(threading.Thread):
@@ -160,54 +165,69 @@ class ProcessNodeThread(threading.Thread):
         self.thread.join()
 
 
+class ProcessNodeProcess():
+    # TODO: 实现进程节点
+    pass
+
+
+
+
 class ProcNodeController:
 
-    def __init__(self, name, node_cls, node_args, emit=None, pool_size=1, poll_timeout=1, mutli_type='single'):
+    def __init__(self, name, node_cls, node_args, emit=None, pool_size=1, poll_timeout=1, mode='single'):
+        # arguement check
+        if not (issubclass(node_cls, OutputProcessNode) or issubclass(node_cls, HandlerProcessNode)):
+            raise UnknownNodeType
+
         # basic arguement
         self.name = name
-        self._poll_timeout = poll_timeout
         self._emit = emit
         self._emit_lock = threading.Lock()
+        self._pool = []
+        self._pool_index = 0
+        self._poll_timeout = poll_timeout
+        self._is_output = True if issubclass(node_cls, OutputProcessNode) else False
 
-        self.pool_index = 0
-
-        self.pool = []
-        proc_node_cls = None
-        if mutli_type == 'single':
-            pool_size = 1
-            logger.warn('Node %s mutli_type is `single`, force set pool_size=1 !' % (self.name))
-            proc_node_cls = ProcessNodeCoroutine
-        elif 'thread' == mutli_type:
-            proc_node_cls = ProcessNodeThread
-        elif 'process' == mutli_type:
-            raise Exception("mutli_type process is not supprot yet!")
+        node_mode_set = {
+            'single'    : (ProcessNodeCoroutine, 1),
+            'thread'    : (ProcessNodeThread, pool_size),
+            'process'   : (None, pool_size)
+        }
+        print node_mode_set
+        proc_node_cls, pool_size = node_mode_set.get(mode, (None, None))
+        if not proc_node_cls:
+            raise Exception("Node mode %s is not supprot yet!" % mode)
 
         for i in range(pool_size):
-            name = self.name + "-unit" + str(i + 1) + "[%s]" %  mutli_type
-            t = proc_node_cls(node_cls, node_args, self.controller_emit_callback,
-                               poll_timeout=poll_timeout, name=name)
-            self.pool.append(t)
+            name = self.name + "-unit" + str(i + 1) + "[%s]" %  mode[0]
+            node = proc_node_cls(node_cls, node_args, self.controller_emit_callback,
+                                 poll_timeout=poll_timeout, name=name)
+            self._pool.append(node)
 
-    def controller_emit_callback(self, data):
+    def controller_emit_callback(self, event):
         if self._emit:
             if self._emit_lock.acquire():
-                self._emit(data)
+                self._emit(event)
             self._emit_lock.release()
         else:
             logger.debug("%s next emit is None, Finished Process" % self.name)
 
     def input(self, event):
-        if 0 == len(self.pool):
+        if 0 == len(self._pool):
             raise PoolNotReady
         # TODO： 目前根据到达的数据包平分event，后续改成根据负载均分
-        self.pool[self.pool_index].input(event)
-        self.pool_index += 1
-        if self.pool_index > len(self.pool) - 1:
-            self.pool_index = 0
+        self._pool[self._pool_index].input(event)
+        self._pool_index += 1
+        if self._pool_index > len(self._pool) - 1:
+            self._pool_index = 0
+
+        # 如果是输出节点，直接返回将Event返回
+        if self._is_output:
+            self.controller_emit_callback(event)
 
     def start(self):
         logger.debug("Start Proc Node %s" % self.name)
-        for process_node in self.pool:
+        for process_node in self._pool:
             process_node.start()
             logger.debug("  |- Start Proc Unit %s id:%s" % (process_node.name, id(process_node)))
             if not process_node._start_success.wait(10):
@@ -215,7 +235,7 @@ class ProcNodeController:
 
     def stop(self):
         logger.debug("Stop Proc Node %s" % self.name)
-        for process_node in self.pool:
+        for process_node in self._pool:
             process_node.stop()
             logger.debug("  |- Stop Proc Unit %s id:%s" % (process_node.name, id(process_node)))
 
