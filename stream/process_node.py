@@ -9,7 +9,10 @@ import threading
 
 from utils import print_traceback
 
+from mini_ruler.ruler import Ruler
+
 import log
+
 logger = log.get_logger()
 
 
@@ -23,6 +26,7 @@ class NodeNotImplement(Exception):
 
 class UnknownNodeType(Exception):
     pass
+
 
 class ProcThreadInitError(Exception):
 
@@ -61,7 +65,6 @@ class OutputProcessNode(object):
         raise NodeNotImplement
 
 
-
 class HandlerProcessNode(object):
 
     def __init__(self, name, conf, emit):
@@ -97,15 +100,14 @@ class HandlerProcessNode(object):
         raise NodeNotImplement
 
 
-
 class ProcessNodeCoroutine:
 
-    def __init__(self, cls, args, controller_emit_cb, poll_timeout=1, name=None):
-        if name:
-            self.name = name
-        self._dismissed = threading.Event()
-        self._start_success = threading.Event()
+    def __init__(self, name, cls, args, controller_emit_cb, poll_timeout=1, pool_size=1):
+        self.name = name + "-unit[c]"
         self.processer = cls(self.name, args, controller_emit_cb)
+
+    def get_pool(self):
+        return [self]
 
     def input(self, event):
         if None == self.processer:
@@ -116,140 +118,167 @@ class ProcessNodeCoroutine:
             print_traceback(logger)
 
     def start(self):
+        logger.debug("Start Proc Node %s" % self.name)
         self.processer.initialize()
-        self._start_success.set()
+        logger.debug("  |- Start Proc Unit %s id:%s" % (self.name, id(self)))
 
     def stop(self):
+        logger.debug("Stop Proc Node %s" % self.name)
         self.processer.finish()
-        self._dismissed.set()
+        logger.debug("  |- Stop Proc Unit %s id:%s" % (self.name, id(self)))
 
 
+class ProcessNodeThread:
 
-class ProcessNodeThread():
-
-    def __init__(self, cls, args, controller_emit_cb, poll_timeout=1, name=None):
-        self.name = name if name else self.name
+    def __init__(self, name, cls, args, controller_emit_cb, poll_timeout=1, pool_size=1):
+        self.name = name
         self._poll_timeout = poll_timeout
         self._event_queue = Queue.Queue()
-        self._dismissed = threading.Event()
-        self._start_success = threading.Event()
-        self.thread = threading.Thread(target=self.thread_run)
-        self.processer = cls(self.name, args, controller_emit_cb)
+
+        self._pool = []
+        for i in range(pool_size):
+            name = self.name + "-unit." + str(i + 1) + "[t]"
+            processer = cls(self.name, args, controller_emit_cb)
+            dismissed = threading.Event()
+            start_success = threading.Event()
+            thread = threading.Thread(target=self.thread_run, name=name,
+                                      args=(processer, dismissed, start_success))
+
+            self._pool.append((thread, dismissed, start_success))
+
+    def get_pool(self):
+        return [node[0] for node in self._pool]
 
     def input(self, event):
         self._event_queue.put(event)
 
-    def thread_run(self):
-        self.processer.initialize()
-        self._start_success.set()
+    def thread_run(self, processer, dismissed, start_success):
+        processer.initialize()
+        start_success.set()
+        print "Set start_success"
         while True:
             try:
                 event = self._event_queue.get(True, self._poll_timeout)
             except Queue.Empty:
-                if self._dismissed.is_set():
+                if dismissed.is_set():
                     break
                 continue
             else:
                 try:
-                    self.processer.proc(event)
+                    processer.proc(event)
                 except:
                     print_traceback(logger)
-        self.processer.finish()
+        processer.finish()
 
     def start(self):
-        self.thread.start()
+        logger.debug("Start Proc Node %s" % self.name)
+        for t, _, start_success in self._pool:
+            t.start()
+            if not start_success.wait(10):
+                # TODO: 是否需要强行杀死该线程？
+                raise ProcThreadInitError("proc thread %s init timeout" % t.name)
+            logger.debug("  |- Start Proc Unit %s id:%s" % (t.name, id(t)))
 
     def stop(self):
+
+        logger.debug("Stop Proc Node %s" % self.name)
+        for _, dismissed, _ in self._pool:
+            if not dismissed.is_set():
+                dismissed.set()
+
         while True:
-            logger.info( "%s _wait_for_all_msg_finish, unfinished: %s" % (self.name, self._event_queue.qsize()))
+            logger.info("%s _wait_for_all_msg_finish, unfinished: %s" % (self.name, self._event_queue.qsize()))
             time.sleep(self._poll_timeout)
             if 0 == self._event_queue.qsize():
                 break
 
-        if not self._dismissed.is_set():
-            self._dismissed.set()
-            self.thread.join()
+        for t, _, _ in self._pool:
+            t.join()
+            logger.debug("  |- Stop Proc Unit %s id:%s" % (t.name, id(t)))
 
 
 class ProcessNodeProcess():
-    # TODO: 实现进程节点
+    # TODO: 实现进程节点, 日后再说
     pass
-
 
 
 class ProcNodeController:
 
-    def __init__(self, name, node_cls, node_args, emit=None, pool_size=1, poll_timeout=1, mode='single'):
+    def __init__(self, name, node_cls, node_args, pool_size=1, poll_timeout=1, mode='single', filter=None):
         # arguement check
         if not (issubclass(node_cls, OutputProcessNode) or issubclass(node_cls, HandlerProcessNode)):
             raise UnknownNodeType
 
+        self.filter = Ruler()
+        self.filter.register_action('CONTINUE', 0)
+        self.filter.register_action('ACCEPT', 1)
+        self.filter.register_action('DROP', -1)
+        _filter = filter if type(filter) == list else []
+        self.filter.register_rule_set('local', _filter)
+
         # basic arguement
         self.name = name
-        self._emit = emit
+        self._emit = None
         self._emit_lock = threading.Lock()
-        self._pool = []
-        self._pool_index = 0
         self._poll_timeout = poll_timeout
         self._is_output = True if issubclass(node_cls, OutputProcessNode) else False
 
-        self._emit_count = 0
-
         self._recv_count = 0
+        self._emit_count = 0
+        self._drop_count = 0
 
         node_mode_set = {
-            'single'    : (ProcessNodeCoroutine, 1),
-            'thread'    : (ProcessNodeThread, pool_size),
-            'process'   : (None, pool_size)
+            'single': (ProcessNodeCoroutine, 1),
+            'thread': (ProcessNodeThread, pool_size),
+            'process': (None, pool_size)
         }
-        proc_node_cls, pool_size = node_mode_set.get(mode, (None, None))
-        if not proc_node_cls:
-            raise Exception("Node mode %s is not supprot yet!" % mode)
+        if mode not in node_mode_set:
+            raise Exception("Node mode %s doesn't exist!" % mode)
 
-        for i in range(pool_size):
-            name = self.name + "-unit" + str(i + 1) + "[%s]" %  mode[0]
-            node = proc_node_cls(node_cls, node_args, self.controller_emit_callback,
-                                 poll_timeout=poll_timeout, name=name)
-            self._pool.append(node)
+        proc_node_cls, pool_size = node_mode_set.get(mode)
+        self.node = proc_node_cls(name, node_cls, node_args, self.controller_emit_callback,
+                                  poll_timeout=poll_timeout, pool_size=pool_size)
+
+    def register_emit(self, emit):
+        self._emit = emit
 
     def controller_emit_callback(self, event):
+        self._emit_count += 1
         if self._emit:
             if self._emit_lock.acquire():
                 self._emit(event)
-                self._emit_count += 1
             self._emit_lock.release()
         else:
-            # logger.debug("%s next emit is None, Finished Process" % self.name)
+            logger.debug("%s next emit is None, Finished Process" % self.name)
             pass
 
     def input(self, event):
-        if 0 == len(self._pool):
-            raise PoolNotReady
-        # TODO： 目前根据到达的数据包平分event，后续改成根据负载均分
-        self._pool[self._pool_index].input(event)
-        self._pool_index += 1
-        if self._pool_index > len(self._pool) - 1:
-            self._pool_index = 0
         self._recv_count += 1
+
+        # 检查Filter
+        filter_result = self.filter.entry('local', event)
+        if filter_result == 0 or filter_result is None:  # CONTINUE: 匹配中 CONTINUE 或未匹配中 直接发送至下一个节点
+            self.controller_emit_callback(event)
+            return
+        elif filter_result == -1:  # DROP: 匹配中 Drop 丢弃该event
+            self._drop_count += 1
+            return
+        elif filter_result == 1:  # ACCEPT: 匹配中 ACCEPT 接受 Event
+            pass
+        else:
+            raise Exception("Error filter result %s" % filter_result)
+
+        self.node.input(event)
 
         # 如果是输出节点，直接返回将Event返回
         if self._is_output:
             self.controller_emit_callback(event)
 
     def start(self):
-        logger.debug("Start Proc Node %s" % self.name)
-        for process_node in self._pool:
-            process_node.start()
-            logger.debug("  |- Start Proc Unit %s id:%s" % (process_node.name, id(process_node)))
-            if not process_node._start_success.wait(10):
-                raise ProcThreadInitError("proc thread %s init timeout" % process_node.name)
+        self.node.start()
 
     def stop(self):
-        logger.debug("Stop Proc Node %s" % self.name)
-        for process_node in self._pool:
-            process_node.stop()
-            logger.debug("  |- Stop Proc Unit %s id:%s" % (process_node.name, id(process_node)))
+        self.node.stop()
 
     def runtime_info(self):
-        return self._recv_count, self._emit_count
-
+        return self._recv_count, self._emit_count, self._drop_count

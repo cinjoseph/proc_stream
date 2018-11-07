@@ -7,7 +7,6 @@ from log import get_logger
 logger = get_logger()
 
 
-
 class ReaderOutputAlreadyExist(Exception):
     pass
 
@@ -62,7 +61,6 @@ class Trigger(object):
         raise TriggerNotImplement
 
 
-
 class TriggerThread:
 
     def __init__(self, cls, args, controller_emit_callback, name=None):
@@ -90,22 +88,24 @@ class TriggerThread:
             self.thread.join()
 
 
-
 class TriggerNodeController:
 
-    def __init__(self, name, emit, trigger_cls, trigger_conf, pool_size=1):
+    def __init__(self, name, trigger_cls, trigger_conf, pool_size=1):
         self.name = name
 
         self._pool = []
         for i in range(pool_size):
-            name = self.name + "-unit" + str(i+1)
+            name = self.name + "-unit" + str(i + 1)
             t = TriggerThread(trigger_cls, trigger_conf, self.controller_emit_callback, name=name)
             self._pool.append(t)
 
-        self._emit = emit
+        self._emit = None
         self._emit_lock = threading.Lock()
 
         self._emit_count = 0
+
+    def register_emit(self, emit):
+        self._emit = emit
 
     def controller_emit_callback(self, raw):
         # 多个trigger thread 只能有一个同时对外输出
@@ -115,13 +115,16 @@ class TriggerNodeController:
         self._emit_lock.release()
 
     def start(self):
+        if self._emit is None:
+            raise TriggerInitError("TriggerController %s start error, emit not registered" % self.name)
+
         logger.info("Start Trigger %s" % self.name)
         for trigger in self._pool:
             trigger.start()
             logger.info("  |- Start Trigger Unit %s id:%s" % (trigger.name, id(trigger)))
             if not trigger._start_success.wait(5):
-                raise TriggerInitError("Trigger %s init timeout" % trigger.name)
-        logger.info(" --- " )
+                raise TriggerInitError("Trigger %s start timeout" % trigger.name)
+        logger.info(" --- ")
 
     def stop(self):
         logger.info("Stop Trigger %s" % self.name)
@@ -131,4 +134,3 @@ class TriggerNodeController:
 
     def runtime_info(self):
         return self._emit_count
-
