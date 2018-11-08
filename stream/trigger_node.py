@@ -118,13 +118,12 @@ class TriggerNodeController:
         if self._emit is None:
             raise TriggerInitError("TriggerController %s start error, emit not registered" % self.name)
 
-        logger.info("Start Trigger %s" % self.name)
+        logger.info("  |- Start Trigger %s" % self.name)
         for trigger in self._pool:
             trigger.start()
-            logger.info("  |- Start Trigger Unit %s id:%s" % (trigger.name, id(trigger)))
+            logger.info("  |  |- Start Trigger Unit %s id:%s" % (trigger.name, id(trigger)))
             if not trigger._start_success.wait(5):
                 raise TriggerInitError("Trigger %s start timeout" % trigger.name)
-        logger.info(" --- ")
 
     def stop(self):
         logger.info("Stop Trigger %s" % self.name)

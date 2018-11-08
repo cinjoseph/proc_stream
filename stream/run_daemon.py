@@ -71,11 +71,8 @@ class Server(object):
 
         self.init_signal_handler(logger)
 
-        try:
-            self.stream_ctrl.start()
-        except Exception, e:
-            logger.error("Error Occur: %s " % str(e))
-            [logger.error(str(s)) for s in traceback.format_exc().split('\n')]
+        self.stream_ctrl.start()
+
 
 
 def get_pid_from_file(pid_file):

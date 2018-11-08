@@ -3,6 +3,7 @@
 # standard library modules
 
 
+import os
 import time
 import threading
 import multiprocessing
@@ -30,7 +31,7 @@ class StreamHeartBeat(object):
         self.controller = controller
         self.timer = None
 
-    def cancle(self):
+    def cancel(self):
         if self.timer:
             self.timer.cancel()
 
@@ -142,6 +143,7 @@ def start_stream(triggers, processers):
         process.start()
     for trigger in triggers:
         trigger.start()
+    logger.info(" ----- ")
 
 
 def stop_stream(triggers, processers):
@@ -155,6 +157,7 @@ def stop_stream(triggers, processers):
 @exception_catcher(logger.error)
 def stream_main(name, config, start_event, stop_event, notify_queue):
     stream_obj = init(name, config)
+    logger.info("Start Stream %s, pid=%s" % (name, os.getpid()))
     start_stream(*stream_obj)
     start_event.set()
     while True:
@@ -163,6 +166,7 @@ def stream_main(name, config, start_event, stop_event, notify_queue):
         runtime_info = get_stream_runtime_info(*stream_obj)
         notify_queue.put({name: runtime_info})
         time.sleep(1)
+    logger.info("Stop Stream %s, pid=%s" % (name, os.getpid()))
     stop_stream(*stream_obj)
 
 
@@ -221,7 +225,6 @@ class StreamController(object):
         self.heartbeats = {}
 
     def init_heartbeat(self, name, cfg):
-        logger.info("Init Heart %s" % name)
         cls = get_module_class(cfg['module'])
         if not cls:
             raise Exception("HeartBeat Module %s doesn't exist")
@@ -243,11 +246,11 @@ class StreamController(object):
             stream_cfg[name]['trigger'] = OrderedDict()
             stream_cfg[name]['trigger'][stream[0]] = reader_template[stream[0]]
             stream_cfg[name]['processer'] = OrderedDict()
-            for pname in stream[1:]:
+            for pname in stream[1:][::-1]:
                 stream_cfg[name]['processer'][pname] = node_template[pname]
 
         logger.info("--------------------------------")
-        logger.info("All Streams Start !!!")
+        # logger.info("All Streams Start !!!")
 
         # 初始化Stream实例列表
         for name, cfg in stream_cfg.items():
@@ -256,15 +259,15 @@ class StreamController(object):
 
         # 初始化所有心跳回调
         for name, cfg in heart_beat_conf.items():
-            logger.info("Init Heart %s" % name)
+            logger.info("Init HeartBeat %s" % name)
             self.heartbeats[name] = self.init_heartbeat(name, cfg)
 
         # 启动所有Stream
         for name, s in self.streams.items():
             if not s.start():
-                logger.info("Start stream %s Failed!!!" % s.name)
+                logger.error("Start stream %s Failed!!!" % s.name)
             else:
-                logger.info("Start stream %s Success!!!" % s.name)
+                logger.error("Start stream %s Success!!!" % s.name)
 
         # 启动所有HeratBeat
         for name, hb in self.heartbeats.items():
@@ -279,7 +282,7 @@ class StreamController(object):
                 pass
 
         for name, hb in self.heartbeats.items():
-            hb.cancle()
+            hb.cancel()
             logger.info("Cancle HeartBeat %s !!!" % name)
         logger.info("All HeartBeat cancled !!!")
 

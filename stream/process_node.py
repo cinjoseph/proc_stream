@@ -118,14 +118,14 @@ class ProcessNodeCoroutine:
             print_traceback(logger)
 
     def start(self):
-        logger.debug("Start Proc Node %s" % self.name)
+        logger.debug("  |- Start Proc Node %s" % self.name)
         self.processer.initialize()
-        logger.debug("  |- Start Proc Unit %s id:%s" % (self.name, id(self)))
+        logger.debug("  |  |- Start Proc Unit %s id:%s" % (self.name, id(self)))
 
     def stop(self):
-        logger.debug("Stop Proc Node %s" % self.name)
+        logger.debug("  |- Stop Proc Node %s" % self.name)
         self.processer.finish()
-        logger.debug("  |- Stop Proc Unit %s id:%s" % (self.name, id(self)))
+        logger.debug("  |  |- Stop Proc Unit %s id:%s" % (self.name, id(self)))
 
 
 class ProcessNodeThread:
@@ -155,7 +155,6 @@ class ProcessNodeThread:
     def thread_run(self, processer, dismissed, start_success):
         processer.initialize()
         start_success.set()
-        print "Set start_success"
         while True:
             try:
                 event = self._event_queue.get(True, self._poll_timeout)
@@ -171,17 +170,17 @@ class ProcessNodeThread:
         processer.finish()
 
     def start(self):
-        logger.debug("Start Proc Node %s" % self.name)
+        logger.debug("  |-Start Proc Node %s" % self.name)
         for t, _, start_success in self._pool:
             t.start()
             if not start_success.wait(10):
                 # TODO: 是否需要强行杀死该线程？
                 raise ProcThreadInitError("proc thread %s init timeout" % t.name)
-            logger.debug("  |- Start Proc Unit %s id:%s" % (t.name, id(t)))
+            logger.debug("  |  |- Start Proc Unit %s id:%s" % (t.name, id(t)))
 
     def stop(self):
 
-        logger.debug("Stop Proc Node %s" % self.name)
+        logger.debug("  |- Stop Proc Node %s" % self.name)
         for _, dismissed, _ in self._pool:
             if not dismissed.is_set():
                 dismissed.set()
@@ -194,7 +193,7 @@ class ProcessNodeThread:
 
         for t, _, _ in self._pool:
             t.join()
-            logger.debug("  |- Stop Proc Unit %s id:%s" % (t.name, id(t)))
+            logger.debug("  |  |- Stop Proc Unit %s id:%s" % (t.name, id(t)))
 
 
 class ProcessNodeProcess():
