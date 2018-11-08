@@ -24,20 +24,20 @@ def remove_json_commets(conf_str):
     new = new.replace(',]', ']')
     new = new.replace(', ]', ']')
     new = new.replace('{', '{\n')
-    return new 
+    return new
 
 
 class Server(object):
 
     def __init__(self, name, run_config):
-        self.stdin_path         = run_config.get("STDIN", "/dev/null")
-        self.stdout_path        = run_config.get("STDOUT", "/dev/null")
-        self.stderr_path        = run_config.get("STDERR", "/dev/null")
-        self.pidfile_path       = run_config.get("PID_FILE", "/var/run/%s.pid" % name)
-        self.pidfile_timeout    = run_config.get("PID_FILE_TIMEOUT", 3)
+        self.stdin_path = run_config.get("STDIN", "/dev/null")
+        self.stdout_path = run_config.get("STDOUT", "/dev/null")
+        self.stderr_path = run_config.get("STDERR", "/dev/null")
+        self.pidfile_path = run_config.get("PID_FILE", "/var/run/%s.pid" % name)
+        self.pidfile_timeout = run_config.get("PID_FILE_TIMEOUT", 3)
 
-        self.logfile    = run_config['LOG_FILE']
-        self.loglevel   = run_config.get('LOG_LEVEL', 'info')
+        self.logfile = run_config['LOG_FILE']
+        self.loglevel = run_config.get('LOG_LEVEL', 'info')
         self.consolelog = run_config.get('CONSOLE_LOG', False)
 
         conf = self.read_conf(run_config['CONF_FILE_PATH'])
@@ -72,7 +72,6 @@ class Server(object):
         self.init_signal_handler(logger)
 
         self.stream_ctrl.start()
-
 
 
 def get_pid_from_file(pid_file):

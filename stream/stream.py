@@ -5,8 +5,10 @@
 
 import os
 import time
+import signal
 import threading
 import multiprocessing
+from functools import wraps
 from collections import OrderedDict
 from Queue import Empty
 
@@ -31,10 +33,13 @@ class StreamHeartBeat(object):
         self.interval = interval
         self.controller = controller
         self.timer = None
+        self.stop = False
 
     def cancel(self):
         if self.timer:
             self.timer.cancel()
+            logger.info("Cancle HeartBeat %s !!!" % self.name)
+        self.stop = True
 
     def start(self):
         self.timer = threading.Timer(self.interval, self.do_heart_beat)
@@ -42,7 +47,8 @@ class StreamHeartBeat(object):
 
     def do_heart_beat(self):
         self.heart_beat(self.controller)
-        self.start()
+        if not self.stop:
+            self.start()
 
     def intialize(self):
         self._init(*self.args)
@@ -50,6 +56,7 @@ class StreamHeartBeat(object):
     def _init(self, args):
         raise StreamHeartBeatNotImplement
 
+    @exception_catcher
     def heart_beat(self, controller):
         raise StreamHeartBeatNotImplement
 
@@ -175,13 +182,15 @@ class Stream:
 
     def __init__(self, name, config, notify_queue):
         self.name = name
+        self.config = config
         self.start_event = multiprocessing.Event()
         self.stop_event = multiprocessing.Event()
-        args = (self.name, config, self.start_event, self.stop_event, notify_queue)
+        args = (self.name, self.config, self.start_event, self.stop_event, notify_queue)
         self.process = multiprocessing.Process(target=stream_main, name=name, args=args)
 
-    def terminate(self, wait_time, loop_time=0.5):
-        self.process.terminate()
+    def kill(self, wait_time, loop_time=0.5):
+        # self.process.terminate()
+        os.kill(self.process.pid, signal.SIGKILL)
         time_count = 0
         while self.process.is_alive():
             time.sleep(loop_time)
@@ -192,40 +201,100 @@ class Stream:
 
     def start(self):
         self.process.start()
-        if self.start_event.wait(3):
+        if self.start_event.wait(15):
             return True
         logger.error("start child timeout, terminate it ")
-        if self.terminate(3):
+        if self.kill(15):
             return False
-        logger.error("terminate child failed, ignore it ")
+        logger.error("kill child failed, ignore it ")
         return False
 
     def stop(self):
         if not self.stop_event.is_set():
             self.stop_event.set()
-        if self.process.join(15):
+        self.process.join(15)
+        if not self.process.is_alive():
             return True
         logger.error("join child failed, terminate it ")
-        if self.terminate(10):
+        if self.kill(15):
             return True
-        logger.error("terminate child failed, ignore it ")
+        logger.error("kill child failed, ignore it ")
         return False
-
 
 class StreamController(object):
 
     def __init__(self, conf, poll_time=1):
-        self.queue = multiprocessing.Queue()
+        self.notify_queue = multiprocessing.Queue()
         self.loop_stop = threading.Event()
         self.conf = conf
         self.poll_time = poll_time
-
         self.runtime_info = {}  # dict 线程安全
-
         self.streams = {}
         self.heartbeats = {}
+        self.oper_lock = threading.Lock()
+
+    def acquire_oper_lock(func):
+        def wapper(*args):
+            controller = args[0]
+            if controller.oper_lock.acquire(10):
+                func(*args)
+                controller.oper_lock.release()
+            else:
+                logger.error("acquire oper_lock timeout, %s do not exec" % func)
+        return wapper
+
+    @acquire_oper_lock
+    def start_stream(self, name):
+        if name not in self.conf['Streams']:
+            raise Exception('start_stream Error, Stream %s does not exsit' % name)
+
+        stream_cfg = {}
+        trigger_name = self.conf['Streams'][name][0]
+        processer_name_list = self.conf['Streams'][name][1:]
+
+        stream_cfg['trigger'] = OrderedDict()
+        if trigger_name in self.conf['TriggerTemplate']:
+            stream_cfg['trigger'][trigger_name] = self.conf['TriggerTemplate'][trigger_name]
+        else:
+            raise Exception('start_stream Error, Trigger %s does not exsit' % name)
+
+        stream_cfg['processer'] = OrderedDict()
+        for processer_name in processer_name_list:
+            if processer_name in self.conf['NodeTemplate']:
+                stream_cfg['processer'][processer_name] = self.conf['NodeTemplate'][processer_name]
+            else:
+                raise Exception('start_stream Error, ProcNode %s does not exsit' % name)
+
+        if name in self.streams:
+            raise Exception('start_stream Error, Stream %s already exist' % name)
+        stream = Stream(name, stream_cfg, self.notify_queue)
+
+        if not stream.start():
+            logger.error("Start stream %s Failed!!!" % name)
+            return
+
+        self.streams[name] = stream
+        logger.error("Start stream %s Success!!!" % name)
+
+    @acquire_oper_lock
+    def stop_stream(self, name):
+        logger.info("Ready to Stop stream %s !!!" % name)
+        if name not in self.streams.keys():
+            raise Exception('stop_stream Error, Stream %s does not exist' % name)
+        self.streams[name].stop()
+        del self.streams[name]
+        logger.info("Stop stream %s Success !!!" % name)
+
+    def restart_stream(self, name):
+        if name in self.streams:
+            logger.info("Restart Stream %s" % name)
+            self.stop_stream(name)
+            self.start_stream(name)
+        else:
+            logger.error("Restart Stream Error, Strean %s does not exist" % name)
 
     def init_heartbeat(self, name, cfg):
+        logger.info("Init HeartBeat %s" % name)
         cls = get_module_class(cfg['module'])
         if not cls:
             raise Exception("HeartBeat Module %s doesn't exist")
@@ -237,46 +306,21 @@ class StreamController(object):
 
     @exception_catcher(logger.error)
     def start(self):
-        heart_beat_conf = self.conf['HeartBeat']
-        node_template = self.conf['NodeTemplate']
-        reader_template = self.conf['TriggerTemplate']
-
-        stream_cfg = {}
-        for name, stream in self.conf['Streams'].items():
-            stream_cfg[name] = {}
-            stream_cfg[name]['trigger'] = OrderedDict()
-            stream_cfg[name]['trigger'][stream[0]] = reader_template[stream[0]]
-            stream_cfg[name]['processer'] = OrderedDict()
-            for pname in stream[1:][::-1]:
-                stream_cfg[name]['processer'][pname] = node_template[pname]
 
         logger.info("--------------------------------")
-        # logger.info("All Streams Start !!!")
-
-        # 初始化Stream实例列表
-        for name, cfg in stream_cfg.items():
-            logger.info("Init stream %s" % name)
-            self.streams[name] = Stream(name, cfg, self.queue)
-
-        # 初始化所有心跳回调
-        for name, cfg in heart_beat_conf.items():
-            logger.info("Init HeartBeat %s" % name)
-            self.heartbeats[name] = self.init_heartbeat(name, cfg)
 
         # 启动所有Stream
-        for name, s in self.streams.items():
-            if not s.start():
-                logger.error("Start stream %s Failed!!!" % s.name)
-            else:
-                logger.error("Start stream %s Success!!!" % s.name)
+        for name in self.conf['Streams']:
+            self.start_stream(name)
 
         # 启动所有HeratBeat
-        for name, hb in self.heartbeats.items():
-            hb.start()
+        for name, cfg in self.conf['HeartBeat'].items():
+            self.heartbeats[name] = self.init_heartbeat(name, cfg)
+            self.heartbeats[name].start()
 
         while not self.loop_stop.is_set():
             try:
-                ret = self.queue.get(timeout=self.poll_time)
+                ret = self.notify_queue.get(timeout=self.poll_time)
                 for k, v in ret.items():
                     self.runtime_info[k] = v
             except Empty:
@@ -284,13 +328,13 @@ class StreamController(object):
 
         for name, hb in self.heartbeats.items():
             hb.cancel()
-            logger.info("Cancle HeartBeat %s !!!" % name)
         logger.info("All HeartBeat cancled !!!")
 
-        for name, stream in self.streams.items():
-            stream.stop()
-            logger.info("stop stream %s !!!" % name)
-        logger.info("All Streams Stop !!!")
+        stream_name_list = self.streams.keys()
+        for name in stream_name_list:
+            self.stop_stream(name)
+        logger.info("All Stoped !!!")
 
     def stop(self):
-        self.loop_stop.set()
+        if not self.loop_stop.is_set():
+            self.loop_stop.set()
