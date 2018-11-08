@@ -8,7 +8,8 @@ logger = get_logger()
 
 class LoggerHeartBeat(StreamHeartBeat):
 
-    def heartbeat(self, infos):
+    def heart_beat(self, controller):
+        infos = controller.runtime_info
         s = pprint.pformat(infos)
         logger.info("Server Runtime Info:\n%s" % s)
 

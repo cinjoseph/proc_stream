@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*- 
 
+import os
 import traceback
+import threading
+import importlib
+from functools import wraps
+
+
 def print_traceback(logger=None):
     bt = traceback.format_exc()
     bt = bt.split('\n')
@@ -10,12 +16,27 @@ def print_traceback(logger=None):
         else:
             logger.error(str(s))
 
-import importlib
+
 def get_module_class(module_path):
     module = module_path.rsplit('.', 1)
     class_name = module[1]
     module = importlib.import_module(module[0])
-    aClass = getattr(module, class_name,  None)
+    aClass = getattr(module, class_name, None)
     return aClass
 
 
+def exception_catcher(err_printer):
+    def func_wapper(func):
+        @wraps(func)
+        def wapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                curr_t = threading.currentThread()
+                pid = os.getpid()
+                err_printer("Error Occur in pid:%s thread:%s" % (pid, curr_t.name))
+                [err_printer(str(s)) for s in traceback.format_exc().split('\n')]
+
+        return wapper
+
+    return func_wapper

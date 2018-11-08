@@ -45,9 +45,8 @@ class Server(object):
             raise Exception("can not get stream config!!!!")
 
         poll_time = run_config.get('STREAM_CONTROLLER_POLL_TIME', 1)
-        heartbeat_interval = run_config.get('HEART_BEAT_INTERVAL', 5)
 
-        self.stream_ctrl = StreamController(conf, poll_time=poll_time, hb_inter=heartbeat_interval)
+        self.stream_ctrl = StreamController(conf, poll_time=poll_time)
 
     def read_conf(self, conf_path):
         f = open(conf_path, 'r')
