@@ -25,7 +25,8 @@ class StreamHeartBeatNotImplement(Exception):
 
 class StreamHeartBeat(object):
 
-    def __init__(self, interval, controller, args):
+    def __init__(self, name, interval, controller, args):
+        self.name = name
         self.args = args
         self.interval = interval
         self.controller = controller
@@ -232,7 +233,7 @@ class StreamController(object):
             raise Exception("Init Heartbeat Error, error class type %s" % cls)
         interval = cfg.get('interval', 5)
         args = cfg.get('args', {})
-        return cls(interval, self, args)
+        return cls(name, interval, self, args)
 
     @exception_catcher(logger.error)
     def start(self):
