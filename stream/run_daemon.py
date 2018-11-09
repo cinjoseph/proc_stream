@@ -4,12 +4,11 @@ import re
 import time
 import json
 import signal
-import traceback
 
 from daemon import runner
 
 from stream import StreamController
-from log import init_logger
+import logger
 
 
 def remove_json_commets(conf_str):
@@ -36,16 +35,15 @@ class Server(object):
         self.pidfile_path = run_config.get("PID_FILE", "/var/run/%s.pid" % name)
         self.pidfile_timeout = run_config.get("PID_FILE_TIMEOUT", 3)
 
-        self.logfile = run_config['LOG_FILE']
-        self.loglevel = run_config.get('LOG_LEVEL', 'info')
-        self.consolelog = run_config.get('CONSOLE_LOG', False)
+        logger.logger_path = run_config['LOG_PATH']
+        logger.logger_level = run_config.get('LOG_LEVEL', 'info')
+        logger.console_log = run_config.get('CONSOLE_LOG', False)
+        logger.logger_name = name
 
         conf = self.read_conf(run_config['CONF_FILE_PATH'])
         if not conf:
             raise Exception("can not get stream config!!!!")
-
         poll_time = run_config.get('STREAM_CONTROLLER_POLL_TIME', 1)
-
         self.stream_ctrl = StreamController(conf, poll_time=poll_time)
 
     def read_conf(self, conf_path):
@@ -67,7 +65,7 @@ class Server(object):
         signal.signal(signal.SIGTERM, sig_handler)
 
     def run(self):
-        logger = init_logger(self.loglevel, self.logfile, self.consolelog)
+        logger.init()
 
         self.init_signal_handler(logger)
 

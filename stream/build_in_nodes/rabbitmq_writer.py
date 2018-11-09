@@ -5,9 +5,7 @@ import json
 
 from stream.process_node import HandlerProcessNode
 
-from stream.log import get_logger
-
-logger = get_logger()
+import stream.logger as logger
 
 
 class RabbitMqWriter(HandlerProcessNode):

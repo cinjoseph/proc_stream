@@ -2,11 +2,9 @@
 
 # standard library modules
 
-import json
 from stream.process_node import HandlerProcessNode, OutputProcessNode
-from stream.log import get_logger
+import stream.logger as logger
 
-logger = get_logger()
 
 
 class PrintNode(OutputProcessNode):

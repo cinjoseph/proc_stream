@@ -8,7 +8,6 @@ import time
 import signal
 import threading
 import multiprocessing
-from functools import wraps
 from collections import OrderedDict
 from Queue import Empty
 
@@ -16,9 +15,7 @@ from process_node import ProcNodeController
 from trigger_node import TriggerNodeController
 from utils import get_module_class, exception_catcher
 
-import log
-
-logger = log.get_logger()
+import logger
 
 
 class StreamHeartBeatNotImplement(Exception):
@@ -164,6 +161,7 @@ def stop_stream(triggers, processers):
 
 @exception_catcher(logger.error)
 def stream_main(name, config, start_event, stop_event, notify_queue):
+    logger.init(name)
     stream_obj = init(name, config)
     logger.info("Start Stream %s, pid=%s" % (name, os.getpid()))
     start_stream(*stream_obj)
@@ -221,6 +219,7 @@ class Stream:
         logger.error("kill child failed, ignore it ")
         return False
 
+
 class StreamController(object):
 
     def __init__(self, conf, poll_time=1):
@@ -241,6 +240,7 @@ class StreamController(object):
                 controller.oper_lock.release()
             else:
                 logger.error("acquire oper_lock timeout, %s do not exec" % func)
+
         return wapper
 
     @acquire_oper_lock
@@ -274,7 +274,7 @@ class StreamController(object):
             return
 
         self.streams[name] = stream
-        logger.error("Start stream %s Success!!!" % name)
+        logger.info("Start stream %s Success!!!" % name)
 
     @acquire_oper_lock
     def stop_stream(self, name):

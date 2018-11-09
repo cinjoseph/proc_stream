@@ -11,9 +11,7 @@ from utils import print_traceback
 
 from mini_ruler.ruler import Ruler
 
-import log
-
-logger = log.get_logger()
+import logger
 
 
 class PoolNotReady(Exception):

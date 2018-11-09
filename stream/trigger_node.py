@@ -1,10 +1,7 @@
 # -*- coding:utf-8 -*-
+import logger
 import threading
-from utils import print_traceback
 
-from log import get_logger
-
-logger = get_logger()
 
 
 class ReaderOutputAlreadyExist(Exception):
@@ -98,10 +95,8 @@ class TriggerNodeController:
             name = self.name + "-unit" + str(i + 1)
             t = TriggerThread(trigger_cls, trigger_conf, self.controller_emit_callback, name=name)
             self._pool.append(t)
-
         self._emit = None
         self._emit_lock = threading.Lock()
-
         self._emit_count = 0
 
     def register_emit(self, emit):

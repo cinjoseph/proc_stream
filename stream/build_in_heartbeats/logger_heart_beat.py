@@ -1,9 +1,7 @@
 # -*- coding:utf-8 -*-
 import pprint
+import stream.logger as logger
 from stream.stream import StreamHeartBeat
-from stream.log import get_logger
-
-logger = get_logger()
 
 count = 0
 
