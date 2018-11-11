@@ -254,13 +254,13 @@ class ProcNodeController:
 
         # 检查Filter
         filter_result = self.filter.entry('local', event)
-        if filter_result == 0 or filter_result is None:  # CONTINUE: 匹配中 CONTINUE 或未匹配中 直接发送至下一个节点
+        if filter_result == 0 :  # CONTINUE: 匹配中 CONTINUE  直接发送至下一个节点
             self.controller_emit_callback(event)
             return
         elif filter_result == -1:  # DROP: 匹配中 Drop 丢弃该event
             self._drop_count += 1
             return
-        elif filter_result == 1:  # ACCEPT: 匹配中 ACCEPT 接受 Event
+        elif filter_result == 1 or filter_result is None:  # ACCEPT: 匹配中 ACCEPT 或未匹配中 接受 Event
             pass
         else:
             raise Exception("Error filter result %s" % filter_result)
