@@ -256,14 +256,14 @@ class StreamController(object):
         if trigger_name in self.conf['TriggerTemplate']:
             stream_cfg['trigger'][trigger_name] = self.conf['TriggerTemplate'][trigger_name]
         else:
-            raise Exception('start_stream Error, Trigger %s does not exsit' % name)
+            raise Exception('start_stream Error, Trigger %s does not exsit' % trigger_name)
 
         stream_cfg['processer'] = OrderedDict()
         for processer_name in processer_name_list:
             if processer_name in self.conf['NodeTemplate']:
                 stream_cfg['processer'][processer_name] = self.conf['NodeTemplate'][processer_name]
             else:
-                raise Exception('start_stream Error, ProcNode %s does not exsit' % name)
+                raise Exception('start_stream Error, ProcNode %s does not exsit' % processer_name)
 
         if name in self.streams:
             raise Exception('start_stream Error, Stream %s already exist' % name)

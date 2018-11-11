@@ -3,7 +3,6 @@ import logger
 import threading
 
 
-
 class ReaderOutputAlreadyExist(Exception):
     pass
 

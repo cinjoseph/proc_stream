@@ -6,12 +6,12 @@ from functools import partial
 from stream.trigger_node import Trigger
 
 
-
 class RabbitMQTrigger(Trigger):
 
     def _init(self, conf):
         self.url, self.queue = tuple(conf['url'].rsplit('.', 1))
         self._need_ack = conf.get('need_ack', False)
+        self._need_ack = False  # 暂时先关闭
         self._mode = conf.get('mode', 'normal')  # normal / fullspeed
         if self._mode not in ['normal', 'fullspeed']:
             raise Exception("Error RmqTrigger arg mode=%s" % self._mode)
@@ -52,6 +52,7 @@ class RabbitMQTrigger(Trigger):
         # TODO: 如何在停止时消费完当前pika队列里面的数据?
         def stop_callback():
             self._channel.stop_consuming()
+
         self._connection.add_callback_threadsafe(stop_callback)
 
     def fullspeed_mode_start(self):
@@ -93,4 +94,3 @@ class RabbitMQTrigger(Trigger):
             self.normal_mode_stop()
         elif "fullspeed" == self._mode:
             self.fullspeed_mode_stop()
-
