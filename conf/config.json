@@ -1,8 +1,8 @@
 {
   "HeartBeat": {
-    "LoggerHeartBeat": {
-      "module": "stream.build_in_heartbeats.logger_heart_beat.LoggerHeartBeat"
-    }
+//    "LoggerHeartBeat": {
+//      "module": "stream.build_in_heartbeats.logger_heart_beat.LoggerHeartBeat"
+//    }
   },
   "TriggerTemplate": {
     "RabbitMQTrigger": {
@@ -22,14 +22,14 @@
     }
   },
   "NodeTemplate": {
-    "PrintNode1": {
+    "BuiltinPrintNode": {
       "module": "stream.build_in_nodes.test_node.PrintNode",
       "filter": [
-        "IF re_match('\\d+', p) THEN DROP"
+        "IF TRUE THEN ACCEPT"
       ]
     },
-    "PrintNode2": {
-      "module": "stream.build_in_nodes.test_node.PrintNode",
+    "CustomPrintNode": {
+      "module": "custom.nodes.test_node.PrintNode",
       "pool_size": 3,
       "mode": "thread"
     },
@@ -57,10 +57,10 @@
   "Streams": {
     "TestStream": [
       "TimerTrigger",
-      "PrintNode1",
+      "CustomPrintNode",
       "AddTailNode1",
       "DelayNode",
-      "PrintNode2"
+      "BuiltinPrintNode"
     ]
   }
 }

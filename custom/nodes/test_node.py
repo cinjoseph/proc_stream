@@ -6,7 +6,6 @@ from stream.process_node import HandlerProcessNode, OutputProcessNode
 import stream.logger as logger
 
 
-
 class PrintNode(OutputProcessNode):
 
     def _init(self, node_conf):

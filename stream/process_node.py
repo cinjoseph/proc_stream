@@ -5,6 +5,7 @@ __author__ = "cinojseph"
 # standard library modules
 import time
 import Queue
+import hashlib
 import threading
 
 from utils import print_traceback
@@ -256,20 +257,19 @@ class ProcNodeController:
         filter_result = self.filter.entry('local', event)
         if filter_result == 0 :  # CONTINUE: 匹配中 CONTINUE  直接发送至下一个节点
             self.controller_emit_callback(event)
-            return
+            logger.debug("%s's filter send event %s to next node!" % (self.name,  hashlib.md5(str(event)).hexdigest()))
         elif filter_result == -1:  # DROP: 匹配中 Drop 丢弃该event
             self._drop_count += 1
-            return
+            logger.debug("%s's filter drop event %s!" % (self.name,  hashlib.md5(str(event)).hexdigest()))
         elif filter_result == 1 or filter_result is None:  # ACCEPT: 匹配中 ACCEPT 或未匹配中 接受 Event
+            self.node.input(event)
+            if self._is_output:  # 如果是输出节点，直接返回将Event返回
+                self.controller_emit_callback(event)
             pass
         else:
             raise Exception("Error filter result %s" % filter_result)
 
-        self.node.input(event)
 
-        # 如果是输出节点，直接返回将Event返回
-        if self._is_output:
-            self.controller_emit_callback(event)
 
     def start(self):
         self.node.start()
