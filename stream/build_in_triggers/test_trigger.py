@@ -6,7 +6,7 @@ from stream.trigger_node import Trigger
 class TimerTrigger(Trigger):
 
     def _init(self, conf):
-        self.poll_time = conf.get('poll_time', 1)
+        self.poll_time = conf.get('poll_time', 5)
         self._stop_event = threading.Event()
         self._stop_event.clear()
 

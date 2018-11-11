@@ -15,9 +15,8 @@
     },
     "TimerTrigger": {
       "module": "stream.build_in_triggers.test_trigger.TimerTrigger",
-      "pool_size": 2,
       "args": {
-        "poll_time": 1
+        "poll_time": 5
       }
     }
   },
@@ -57,9 +56,9 @@
   "Streams": {
     "TestStream": [
       "TimerTrigger",
-      "CustomPrintNode",
-      "AddTailNode1",
-      "DelayNode",
+//      "CustomPrintNode",
+//      "AddTailNode1",
+//      "DelayNode",
       "BuiltinPrintNode"
     ]
   }
