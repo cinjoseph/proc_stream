@@ -256,7 +256,6 @@ class ProcNodeController:
     def input(self, event):
         # node间数据json格式流转。使用收到Event时先反序列化
         event = ujson.loads(event)
-
         self._recv_count += 1
         # 检查Filter
         try:
@@ -272,6 +271,7 @@ class ProcNodeController:
             self._drop_count += 1
             logger.debug("%s's filter drop event %s!" % (self.name, hashlib.md5(str(event)).hexdigest()))
         elif filter_result == 1 or filter_result is None:  # ACCEPT: 匹配中 ACCEPT 或未匹配中 接受 Event
+            logger.debug("%s's filter accept event %s!" % (self.name, hashlib.md5(str(event)).hexdigest()))
             self.node.input(event)
             if self._is_output:  # 如果是输出节点，直接返回将Event返回
                 self.controller_emit_callback(event)
