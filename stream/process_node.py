@@ -259,7 +259,12 @@ class ProcNodeController:
 
         self._recv_count += 1
         # 检查Filter
-        filter_result = self.filter.entry('local', event)
+        try:
+            filter_result = self.filter.entry('local', event)
+        except(Exception) as e:
+            logger.debug("%s's Filter Error:%s !" % (self.name, str(e)))
+            filter_result = -1
+
         if filter_result == 0:  # CONTINUE: 匹配中 CONTINUE  直接发送至下一个节点
             self.controller_emit_callback(event)
             logger.debug("%s's filter send event %s to next node!" % (self.name, hashlib.md5(str(event)).hexdigest()))
