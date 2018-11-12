@@ -66,11 +66,10 @@ def create_trigger_node(stream_name, name, conf):
     module_path = conf.get('module', None)
     if not module_path:
         raise Exception("%s conf doesn't has module conf" % trigger_name)
-
-    trigger_cls = get_module_class(module_path)
-    if not trigger_cls:
-        raise Exception("Can not get class %s %s" % (trigger_name, module_path))
-
+    try:
+        trigger_cls = get_module_class(module_path)
+    except ImportError, e:
+        raise Exception("Load Trigger %s's module: %s Error: %s" % (trigger_name, module_path, str(e)))
     trigger_conf = conf.get('args', {})
     pool_size = conf.get('pool_size', 1)
 
@@ -89,7 +88,7 @@ def create_processer_node(stream_name, name, conf):
     try:
         node_cls = get_module_class(module_path)
     except ImportError, e:
-        raise Exception("Load moudle %s.%s Error: %s" % (module_path, node_name, str(e)))
+        raise Exception("Load node %s's module: %s Error: %s" % (node_name, module_path, str(e)))
     node_args = conf.get("args", {})
     pool_size = conf.get('pool_size', 1)
     poll_timeout = conf.get('poll_timeout', 1)

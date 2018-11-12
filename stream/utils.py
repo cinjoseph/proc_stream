@@ -19,9 +19,12 @@ def print_traceback(logger=None):
 
 def get_module_class(module_path):
     module = module_path.rsplit('.', 1)
+    module_path = module[0]
     class_name = module[1]
-    module = importlib.import_module(module[0])
+    module = importlib.import_module(module_path)
     aClass = getattr(module, class_name, None)
+    if aClass is None:
+        raise Exception("No class `%s` in module `%s`" % (class_name, module_path))
     return aClass
 
 
