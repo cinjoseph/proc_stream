@@ -3,6 +3,7 @@
 __author__ = "cinojseph"
 
 # standard library modules
+import ujson
 import time
 import Queue
 import hashlib
@@ -243,6 +244,8 @@ class ProcNodeController:
     def controller_emit_callback(self, event):
         self._emit_count += 1
         if self._emit:
+            # node间数据json格式流转。发送Event前先反序列化
+            event = ujson.dumps(event)
             if self._emit_lock.acquire():
                 self._emit(event)
             self._emit_lock.release()
@@ -251,16 +254,18 @@ class ProcNodeController:
             pass
 
     def input(self, event):
-        self._recv_count += 1
+        # node间数据json格式流转。使用收到Event时先反序列化
+        event = ujson.loads(event)
 
+        self._recv_count += 1
         # 检查Filter
         filter_result = self.filter.entry('local', event)
-        if filter_result == 0 :  # CONTINUE: 匹配中 CONTINUE  直接发送至下一个节点
+        if filter_result == 0:  # CONTINUE: 匹配中 CONTINUE  直接发送至下一个节点
             self.controller_emit_callback(event)
-            logger.debug("%s's filter send event %s to next node!" % (self.name,  hashlib.md5(str(event)).hexdigest()))
+            logger.debug("%s's filter send event %s to next node!" % (self.name, hashlib.md5(str(event)).hexdigest()))
         elif filter_result == -1:  # DROP: 匹配中 Drop 丢弃该event
             self._drop_count += 1
-            logger.debug("%s's filter drop event %s!" % (self.name,  hashlib.md5(str(event)).hexdigest()))
+            logger.debug("%s's filter drop event %s!" % (self.name, hashlib.md5(str(event)).hexdigest()))
         elif filter_result == 1 or filter_result is None:  # ACCEPT: 匹配中 ACCEPT 或未匹配中 接受 Event
             self.node.input(event)
             if self._is_output:  # 如果是输出节点，直接返回将Event返回
@@ -268,8 +273,6 @@ class ProcNodeController:
             pass
         else:
             raise Exception("Error filter result %s" % filter_result)
-
-
 
     def start(self):
         self.node.start()
