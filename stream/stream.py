@@ -109,7 +109,7 @@ def init(stream_name, config):
     processers = []
     triggers = []
     emit = None
-    for name, cfg in config['processer'].items():
+    for name, cfg in config['processer'].items()[::-1]:
         proc_node = create_processer_node(stream_name, name, cfg)
         proc_node.register_emit(emit)
         emit = proc_node.input
