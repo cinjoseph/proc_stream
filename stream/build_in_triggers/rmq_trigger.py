@@ -17,12 +17,18 @@ class RabbitMQTrigger(Trigger):
             raise Exception("Error RmqTrigger arg mode=%s" % self._mode)
         self._normal_mode_stop_signal = threading.Event()
         self._channel_lock = threading.Lock()
-        self._connection = pika.BlockingConnection(pika.URLParameters(self.url))
-        self._channel = self._connection.channel()
+        self._connection = None
+        self._channel = None
+        self.connect()
 
     def _fini(self):
         self._channel.close()
         self._connection.close()
+
+    def connect(self):
+        self._connection = pika.BlockingConnection(pika.URLParameters(self.url))
+        self._channel = self._connection.channel()
+
 
     #############################################################
     # recv_callback & ack_callback
@@ -76,7 +82,10 @@ class RabbitMQTrigger(Trigger):
         while not self._normal_mode_stop_signal.is_set():
             method_frame, header_frame, body = None, None, None
             if self._channel_lock.acquire():
-                method_frame, header_frame, body = self._channel.basic_get(self.queue, no_ack=not self._need_ack)
+                try:
+                    method_frame, header_frame, body = self._channel.basic_get(self.queue, no_ack=not self._need_ack)
+                except(pika.exceptions.ConnectionClosed):
+                    self.connect()
             self._channel_lock.release()
             if method_frame:
                 self.msg_recv_handler(self._channel, method_frame, header_frame, body)
