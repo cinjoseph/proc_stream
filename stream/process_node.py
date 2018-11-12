@@ -261,17 +261,19 @@ class ProcNodeController:
         try:
             filter_result = self.filter.entry('local', event)
         except(Exception) as e:
-            logger.debug("%s's Filter Error:%s !" % (self.name, str(e)))
-            filter_result = -1
+            logger.error("%s's Filter Error:%s !" % (self.name, str(e)))
+            filter_result = -1, "Filter Error:%s" % str(e)
+
+        (filter_result, rule) = (filter_result[0], filter_result[1]) if filter_result else (None, 'no rule match')
 
         if filter_result == 0:  # CONTINUE: 匹配中 CONTINUE  直接发送至下一个节点
             self.controller_emit_callback(event)
-            logger.debug("%s's filter send event %s to next node!" % (self.name, hashlib.md5(str(event)).hexdigest()))
+            logger.debug("%s's filter send event to next node! reason: '%s'" % (self.name, rule))
         elif filter_result == -1:  # DROP: 匹配中 Drop 丢弃该event
             self._drop_count += 1
-            logger.debug("%s's filter drop event %s!" % (self.name, hashlib.md5(str(event)).hexdigest()))
+            logger.debug("%s's filter drop event! reason: '%s'" % (self.name, rule))
         elif filter_result == 1 or filter_result is None:  # ACCEPT: 匹配中 ACCEPT 或未匹配中 接受 Event
-            logger.debug("%s's filter accept event %s!" % (self.name, hashlib.md5(str(event)).hexdigest()))
+            logger.debug("%s's filter accept event! reason: '%s'" % (self.name, rule))
             self.node.input(event)
             if self._is_output:  # 如果是输出节点，直接返回将Event返回
                 self.controller_emit_callback(event)
