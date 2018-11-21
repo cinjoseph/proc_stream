@@ -253,9 +253,9 @@ class ProcNodeController:
             logger.debug("%s next emit is None, Finished Process" % self.name)
             pass
 
-    def input(self, event):
+    def input(self, raw):
         # node间数据json格式流转。使用收到Event时先反序列化
-        event = ujson.loads(event)
+        event = ujson.loads(raw)
         self._recv_count += 1
         # 检查Filter
         try:
@@ -268,12 +268,12 @@ class ProcNodeController:
 
         if filter_result == 0:  # CONTINUE: 匹配中 CONTINUE  直接发送至下一个节点
             self.controller_emit_callback(event)
-            logger.debug("%s's filter send event to next node! reason: '%s'" % (self.name, rule))
+            logger.debug("%s's filter send event to next node! reason: '%s', raw:\n%s" % (self.name, rule, str(raw)))
         elif filter_result == -1:  # DROP: 匹配中 Drop 丢弃该event
             self._drop_count += 1
-            logger.debug("%s's filter drop event! reason: '%s'" % (self.name, rule))
+            logger.debug("%s's filter drop event! reason: '%s', raw:\n%s" % (self.name, rule, str(raw)))
         elif filter_result == 1 or filter_result is None:  # ACCEPT: 匹配中 ACCEPT 或未匹配中 接受 Event
-            logger.debug("%s's filter accept event! reason: '%s'" % (self.name, rule))
+            logger.debug("%s's filter accept event! reason: '%s', raw:\n%s" % (self.name, rule, str(raw)))
             self.node.input(event)
             if self._is_output:  # 如果是输出节点，直接返回将Event返回
                 self.controller_emit_callback(event)

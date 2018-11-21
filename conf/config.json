@@ -1,8 +1,18 @@
 {
+  "RemoteLogger": {
+    "RedisLogger": {
+      "module": "stream.builtin_remote_logger.redis_logger.RedisLogger",
+      "level": "debug",
+      "args": {
+        "url": "redis://pwd@host:port/db",
+        "list_name": "StreamLogger"
+      }
+    }
+  },
   "HeartBeat": {
-//    "LoggerHeartBeat": {
-//      "module": "stream.build_in_heartbeats.logger_heart_beat.LoggerHeartBeat"
-//    }
+        "LoggerHeartBeat": {
+          "module": "stream.build_in_heartbeats.logger_heart_beat.LoggerHeartBeat"
+        }
   },
   "TriggerTemplate": {
     "RabbitMQTrigger": {
@@ -56,9 +66,9 @@
   "Streams": {
     "TestStream": [
       "TimerTrigger",
-//      "CustomPrintNode",
-//      "AddTailNode1",
-//      "DelayNode",
+      //      "CustomPrintNode",
+      //      "AddTailNode1",
+      //      "DelayNode",
       "BuiltinPrintNode"
     ]
   }

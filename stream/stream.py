@@ -173,6 +173,7 @@ def stream_main(name, config, start_event, stop_event, notify_queue):
         time.sleep(1)
     logger.info("Stop Stream %s, pid=%s" % (name, os.getpid()))
     stop_stream(*stream_obj)
+    logger.fini()
 
 
 class Stream:
@@ -305,7 +306,7 @@ class StreamController(object):
 
     @exception_catcher(logger.error)
     def start(self):
-
+        # 初始化logger
         logger.info("--------------------------------")
 
         # 启动所有Stream

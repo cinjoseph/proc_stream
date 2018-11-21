@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 import os
 import re
+import sys
 import time
 import json
 import signal
@@ -9,6 +10,9 @@ from daemon import runner
 
 from stream import StreamController
 import logger
+
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 
 def remove_json_commets(conf_str):
@@ -35,16 +39,19 @@ class Server(object):
         self.pidfile_path = run_config.get("PID_FILE", "/var/run/%s.pid" % name)
         self.pidfile_timeout = run_config.get("PID_FILE_TIMEOUT", 3)
 
-        logger.logger_path = run_config['LOG_PATH']
-        logger.logger_level = run_config.get('LOG_LEVEL', 'info')
-        logger.console_log = run_config.get('CONSOLE_LOG', False)
-        logger.logger_name = name
+        logger.g_logger_path = run_config['LOG_PATH']
+        logger.g_logger_level = run_config.get('LOG_LEVEL', 'info')
+        logger.g_console_log = run_config.get('CONSOLE_LOG', False)
+        logger.g_logger_name = name
+
 
         conf = self.read_conf(run_config['CONF_FILE_PATH'])
         if not conf:
             raise Exception("can not get stream config!!!!")
         poll_time = run_config.get('STREAM_CONTROLLER_POLL_TIME', 1)
         self.stream_ctrl = StreamController(conf, poll_time=poll_time)
+
+        logger.g_remote_logger_template = conf["RemoteLogger"]
 
     def read_conf(self, conf_path):
         f = open(conf_path, 'r')
@@ -66,10 +73,11 @@ class Server(object):
 
     def run(self):
         logger.init()
-
         self.init_signal_handler(logger)
-
         self.stream_ctrl.start()
+        logger.fini()
+
+
 
 
 def get_pid_from_file(pid_file):
