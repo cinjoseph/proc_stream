@@ -223,7 +223,7 @@ class Stream:
 class StreamController(object):
 
     def __init__(self, conf, poll_time=1):
-        self.notify_queue = multiprocessing.Queue()
+        self.notify_queue = None
         self.loop_stop = threading.Event()
         self.conf = conf
         self.poll_time = poll_time
@@ -306,8 +306,10 @@ class StreamController(object):
 
     @exception_catcher(logger.error)
     def start(self):
-        # 初始化logger
         logger.info("--------------------------------")
+
+        # start之后会变成守护进程，必须在此处初始notify_Queue
+        self.notify_queue = multiprocessing.Queue()
 
         # 启动所有Stream
         for name in self.conf['Streams']:
