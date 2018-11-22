@@ -5,6 +5,7 @@
 
 import os
 import time
+import json
 import signal
 import threading
 import multiprocessing
@@ -132,13 +133,17 @@ def init(stream_name, config):
 
 
 def get_stream_runtime_info(triggers, processers):
-    info = {'trigger': {}, 'process': {}}
+    info = OrderedDict()
+    info['trigger'] = OrderedDict()
+    info['process'] = OrderedDict()
     for trigger in triggers:
         info['trigger'][trigger.name] = {'emit': trigger.runtime_info()}
-    for process in processers[::-1]:
-        recv_count, emit_count, drop_count = process.runtime_info()
-        info['process'][process.name] = {'emit': emit_count, 'recv': recv_count, 'drop': drop_count}
-    return info
+    for process in processers:
+        recv_count, emit_count, drop_count, mode, pending_count = process.runtime_info()
+        info['process'][process.name] = {'emit': emit_count, 'recv': recv_count,
+                                         'drop': drop_count, 'mode': mode, 'pending': pending_count}
+    info['remote_logger_pending'] = logger.current_remote_logger_pending_count()
+    return json.dumps(info)
 
 
 def start_stream(triggers, processers):
@@ -324,7 +329,8 @@ class StreamController(object):
             try:
                 ret = self.notify_queue.get(timeout=self.poll_time)
                 for k, v in ret.items():
-                    self.runtime_info[k] = v
+                    self.runtime_info[k] = json.loads(v, object_pairs_hook=OrderedDict)
+                self.runtime_info['remote_logger_pending'] = logger.current_remote_logger_pending_count()
             except Empty:
                 pass
 

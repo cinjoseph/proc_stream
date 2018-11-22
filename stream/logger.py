@@ -29,6 +29,9 @@ __log_level__ = {
 }
 
 
+def current_remote_logger_pending_count():
+    return g_loggers[g_logger_name][1].get_pending_count()
+
 def current_local_logger():
     return g_loggers[g_logger_name][0]
 
@@ -116,10 +119,11 @@ class LocalLogger:
 
 class CustomRemoteLogger(object):
 
-    def __init__(self, name, conf, level):
+    def __init__(self, name, conf, level, enable):
         self.name = name
         self.conf = conf
         self.level = level
+        self.enable = enable
         self.is_init = False
 
     def initialize(self):
@@ -156,6 +160,9 @@ class RemoteLogger(threading.Thread):
         self.logger_level = level
         self.loggers = []
 
+    def get_pending_count(self):
+        return self.logger_queue.qsize()
+
     def register_custom_logger(self, logger):
         self.loggers.append(logger)
 
@@ -188,7 +195,9 @@ class RemoteLogger(threading.Thread):
                 body = data["body"]
                 for logger in self.loggers:
                     try:
-                        if __log_level__[logger.level] < __log_level__[g_logger_level]:
+                        if not logger.enable:
+                            continue
+                        if __log_level__[level] < __log_level__[logger.level]:
                             continue
                         logger.log(ts, name, level, body)
                         local_logger = current_local_logger()
@@ -222,9 +231,10 @@ def init(name=None):
         cls = get_module_class(conf['module'])
         args = conf['args']
         level = conf.get('level', 'debug')
+        enable = conf.get('enable', True)
         if not issubclass(cls, CustomRemoteLogger):
             raise UnknowLoggerType
-        remote_logger.register_custom_logger(cls(name, args, level))
+        remote_logger.register_custom_logger(cls(name, args, level, enable))
     remote_logger.start()
     g_loggers[g_logger_name] = [local_logger, remote_logger]
 

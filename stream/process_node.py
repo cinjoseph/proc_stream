@@ -106,6 +106,9 @@ class ProcessNodeCoroutine:
         self.name = name + "-unit[c]"
         self.processer = cls(self.name, args, controller_emit_cb)
 
+    def get_event_pending_count(self):
+        return 0
+
     def get_pool(self):
         return [self]
 
@@ -145,6 +148,9 @@ class ProcessNodeThread:
                                       args=(processer, dismissed, start_success))
 
             self._pool.append((thread, dismissed, start_success))
+
+    def get_event_pending_count(self):
+        return self._event_queue.qsize()
 
     def get_pool(self):
         return [node[0] for node in self._pool]
@@ -225,6 +231,7 @@ class ProcNodeController:
         self._recv_count = 0
         self._emit_count = 0
         self._drop_count = 0
+        self._mode = mode
 
         node_mode_set = {
             'single': (ProcessNodeCoroutine, 1),
@@ -288,4 +295,4 @@ class ProcNodeController:
         self.node.stop()
 
     def runtime_info(self):
-        return self._recv_count, self._emit_count, self._drop_count
+        return self._recv_count, self._emit_count, self._drop_count, self._mode, self.node.get_event_pending_count()
