@@ -159,7 +159,11 @@ class ProcessNodeThread:
         self._event_queue.put(event)
 
     def thread_run(self, processer, dismissed, start_success):
-        processer.initialize()
+        try:
+            processer.initialize()
+        except:
+            print_traceback(logger)
+
         start_success.set()
         while True:
             try:
