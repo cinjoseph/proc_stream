@@ -11,7 +11,7 @@ import threading
 
 from utils import print_traceback
 
-from mini_ruler.ruler import Ruler
+from mini_ruler.ruler import Ruler, RulerNoMatch
 
 import logger
 
@@ -271,6 +271,8 @@ class ProcNodeController:
         # 检查Filter
         try:
             filter_result = self.filter.entry('local', event)
+        except RulerNoMatch:
+            filter_result = (None, 'no rule match')
         except(Exception) as e:
             logger.error("%s's Filter Error:%s !" % (self.name, str(e)))
             filter_result = -1, "Filter Error:%s" % str(e)
