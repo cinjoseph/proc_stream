@@ -16,6 +16,9 @@ g_logger_name = "main"
 g_logger_path = "/var/log/"
 g_console_log = False
 
+
+g_local_logger = None
+g_remote_logger = None
 g_loggers = {}
 
 g_remote_logger_template = {}
@@ -29,15 +32,9 @@ __log_level__ = {
 }
 
 
-def current_remote_logger_pending_count():
-    return g_loggers[g_logger_name][1].get_pending_count()
-
-def current_local_logger():
-    return g_loggers[g_logger_name][0]
-
-
-def current_remote_logger():
-    return g_loggers[g_logger_name][1]
+def remote_logger_pending_count():
+    global g_remote_logger
+    return g_remote_logger.get_pending_count()
 
 
 class LoggerNotImplement(Exception):
@@ -200,11 +197,9 @@ class RemoteLogger(threading.Thread):
                         if __log_level__[level] < __log_level__[logger.level]:
                             continue
                         logger.log(ts, name, level, body)
-                        local_logger = current_local_logger()
-                        local_logger.log("debug", "send log `%s` to remote logger %s" % (data, logger.name))
+                        g_local_logger.log("debug", "send log `%s` to remote logger %s" % (data, logger.name))
                     except:
-                        local_logger = current_local_logger()
-                        print_traceback(local_logger)
+                        print_traceback(g_local_logger)
 
         for logger in self.loggers:
             logger.finish()
@@ -214,7 +209,8 @@ class RemoteLogger(threading.Thread):
 
 
 def init(name=None):
-    global g_loggers
+    global g_local_logger
+    global g_remote_logger
     global g_logger_name
     global g_logger_level
     global g_logger_path
@@ -223,9 +219,9 @@ def init(name=None):
     if not name:
         name = g_logger_name
     g_logger_name = name
-    if name in g_loggers:
-        raise Exception("Init logger %s error, already exist" % name)
     local_logger = LocalLogger(g_logger_name, g_logger_level, g_logger_path, g_console_log)
+    g_local_logger = local_logger
+
     remote_logger = RemoteLogger(g_logger_name, g_logger_level)
     for name, conf in g_remote_logger_template.items():
         cls = get_module_class(conf['module'])
@@ -236,17 +232,16 @@ def init(name=None):
             raise UnknowLoggerType
         remote_logger.register_custom_logger(cls(name, args, level, enable))
     remote_logger.start()
-    g_loggers[g_logger_name] = [local_logger, remote_logger]
+    g_local_logger.log("info", "Process %s's custom logger start" % (g_logger_name))
+
+    g_remote_logger = remote_logger
 
 
 def fini():
-    global g_loggers
-    for name, logger in g_loggers.items():
-        logger[0].log("info", "%s stop remote logger %s" % (g_logger_name, name))
-        logger[1].stop()
-    for name, logger in g_loggers.items():
-        logger[0].log("info", "%s join remote logger %s" % (g_logger_name, name))
-        logger[1].join()
+    # g_local_logger.log("info", "Process %s stop remote logger %s" % (g_logger_name, g_logger_name))
+    g_remote_logger.stop()
+    g_remote_logger.join()
+    g_local_logger.log("info", "Process %s's custom logger stoped" % (g_logger_name))
 
 
 """
@@ -265,10 +260,10 @@ def fini():
 
 
 def log(level, body):
-    current_logger = current_local_logger()
-    remote_logger = current_remote_logger()
-    current_logger.log(level, body)
-    remote_logger.log(level, body)
+    global g_local_logger
+    global g_remote_logger
+    g_local_logger.log(level, body)
+    g_remote_logger.log(level, body)
 
 
 def debug(body):

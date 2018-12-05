@@ -142,7 +142,7 @@ def get_stream_runtime_info(triggers, processers):
         recv_count, emit_count, drop_count, mode, pending_count = process.runtime_info()
         info['process'][process.name] = {'emit': emit_count, 'recv': recv_count,
                                          'drop': drop_count, 'mode': mode, 'pending': pending_count}
-    info['remote_logger_pending'] = logger.current_remote_logger_pending_count()
+    info['remote_logger_pending'] = logger.remote_logger_pending_count()
     return json.dumps(info)
 
 
@@ -330,7 +330,7 @@ class StreamController(object):
                 ret = self.notify_queue.get(timeout=self.poll_time)
                 for k, v in ret.items():
                     self.runtime_info[k] = json.loads(v, object_pairs_hook=OrderedDict)
-                self.runtime_info['remote_logger_pending'] = logger.current_remote_logger_pending_count()
+                self.runtime_info['remote_logger_pending'] = logger.remote_logger_pending_count()
             except Empty:
                 pass
 
