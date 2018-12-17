@@ -14,7 +14,8 @@ class TimerTrigger(Trigger):
         count = 0
         while not self._stop_event.is_set():
             count += 1
-            self.emit(str(count))
+            data = {'count': count}
+            self.emit(data)
             time.sleep(self.poll_time)
 
     def _stop(self):

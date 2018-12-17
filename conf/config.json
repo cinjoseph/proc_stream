@@ -1,75 +1,77 @@
 {
-  "RemoteLogger": {
-    "RedisLogger": {
-      "module": "stream.builtin_remote_logger.redis_logger.RedisLogger",
-      "level": "debug",
-      "args": {
-        "url": "redis://pwd@host:port/db",
-        "list_name": "StreamLogger"
-      }
-    }
-  },
-  "HeartBeat": {
-        "LoggerHeartBeat": {
-          "module": "stream.build_in_heartbeats.logger_heart_beat.LoggerHeartBeat"
-        }
-  },
-  "TriggerTemplate": {
-    "RabbitMQTrigger": {
-      "module": "stream.build_in_triggers.rmq_trigger.RabbitMQTrigger",
-      "args": {
-        "url": "amqp://user:passwd@host:port/%2F.queue_name",
-        "need_ack": false,
-        "mode": "normal"
-      }
-    },
-    "TimerTrigger": {
-      "module": "stream.build_in_triggers.test_trigger.TimerTrigger",
-      "args": {
-        "poll_time": 5
-      }
-    }
-  },
-  "NodeTemplate": {
-    "BuiltinPrintNode": {
-      "module": "stream.build_in_nodes.test_node.PrintNode",
-      "filter": [
-        "IF TRUE THEN ACCEPT"
-      ]
-    },
-    "CustomPrintNode": {
-      "module": "custom.nodes.test_node.PrintNode",
-      "pool_size": 3,
-      "mode": "thread"
-    },
-    "AddTailNode1": {
-      "module": "stream.build_in_nodes.test_node.AddTailNode",
-      "pool_size": 1
-    },
-    "DelayNode": {
-      "module": "stream.build_in_nodes.test_node.DelayNode",
-      "pool_size": 1,
-      "mode": "thread",
-      "args": {
-        "loop": 5
-      }
-    },
-    "DelayNode2": {
-      "module": "stream.build_in_nodes.test_node.DelayNode",
-      "pool_size": 1,
-      "mode": "thread",
-      "args": {
-        "loop": 50
-      }
-    }
-  },
-  "Streams": {
-    "TestStream": [
-      "TimerTrigger",
-      //      "CustomPrintNode",
-      //      "AddTailNode1",
-      //      "DelayNode",
-      "BuiltinPrintNode"
-    ]
-  }
+	"RemoteLogger": {
+		//"RedisLogger": {
+		//	"module": "stream.builtin_remote_logger.redis_logger.RedisLogger",
+		//	"level": "debug",
+		//	"args": {
+		//		"url": "redis://pwd@host:port/db",
+		//		"list_name": "StreamLogger"
+		//	}
+		//}
+	},
+	"HeartBeat": {
+		"LoggerHeartBeat": {
+			"module": "stream.builtin_heartbeats.logger_heart_beat.LoggerHeartBeat"
+		}
+	},
+	"TriggerTemplate": {
+		"RabbitMQTrigger": {
+			"module": "stream.builtin_triggers.rmq_trigger.RabbitMQTrigger",
+			"args": {
+				"url": "amqp://user:passwd@host:port/%2F.queue_name",
+				"need_ack": false,
+				"mode": "normal"
+			}
+		},
+		"TimerTrigger": {
+			"module": "stream.builtin_triggers.test_trigger.TimerTrigger",
+			"args": {
+				"poll_time": 5
+			}
+		}
+	},
+	"NodeTemplate": {
+		"BuiltinPrintNode": {
+			"module": "stream.builtin_nodes.test_node.PrintNode",
+			"filter": [
+				"IF TRUE THEN ACCEPT"
+			]
+		},
+		"CustomPrintNode": {
+			"module": "custom.nodes.test_node.PrintNode",
+			"pool_size": 3,
+			"mode": "thread"
+		},
+		"AddTailNode1": {
+			"module": "stream.builtin_nodes.test_node.AddTailNode",
+			"pool_size": 1
+		},
+		"DelayNode": {
+			"module": "stream.builtin_nodes.test_node.DelayNode",
+			"pool_size": 1,
+			"mode": "thread",
+			"args": {
+				"loop": 5
+			}
+		},
+		"DelayNode2": {
+			"module": "stream.builtin_nodes.test_node.DelayNode",
+			"pool_size": 1,
+			"mode": "thread",
+			"args": {
+				"loop": 50
+			}
+		}
+	},
+	"Streams": {
+		"TestStream": {
+			"triggers": ["TimerTrigger"],
+			"processe": [
+				//      "CustomPrintNode",
+				//      "AddTailNode1",
+				//      "DelayNode",
+				"BuiltinPrintNode"
+			]
+		}
+	}
 }

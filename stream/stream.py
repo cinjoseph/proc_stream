@@ -254,14 +254,15 @@ class StreamController(object):
             raise Exception('start_stream Error, Stream %s does not exsit' % name)
 
         stream_cfg = {}
-        trigger_name = self.conf['Streams'][name][0]
-        processer_name_list = self.conf['Streams'][name][1:]
+        trigger_name_list = self.conf['Streams'][name]['triggers']
+        processer_name_list = self.conf['Streams'][name]['processe']
 
         stream_cfg['trigger'] = OrderedDict()
-        if trigger_name in self.conf['TriggerTemplate']:
-            stream_cfg['trigger'][trigger_name] = self.conf['TriggerTemplate'][trigger_name]
-        else:
-            raise Exception('start_stream Error, Trigger %s does not exsit' % trigger_name)
+        for trigger_name in trigger_name_list:
+            if trigger_name in self.conf['TriggerTemplate']:
+                stream_cfg['trigger'][trigger_name] = self.conf['TriggerTemplate'][trigger_name]
+            else:
+                raise Exception('start_stream Error, Trigger %s does not exsit' % trigger_name)
 
         stream_cfg['processer'] = OrderedDict()
         for processer_name in processer_name_list:

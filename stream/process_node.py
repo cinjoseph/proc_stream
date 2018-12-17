@@ -11,7 +11,7 @@ import threading
 
 from utils import print_traceback
 
-from mini_ruler.ruler import Ruler, RulerNoMatch
+from lib.mini_ruler.ruler import Ruler, RulerNoMatch
 
 import logger
 
@@ -266,7 +266,13 @@ class ProcNodeController:
 
     def input(self, raw):
         # node间数据json格式流转。使用收到Event时先反序列化
-        event = ujson.loads(raw)
+        try:
+            event = ujson.loads(raw)
+        except TypeError as e:
+            logger.error("Process node json loads Error:%s" % str(e))
+            logger.error("raw is : \n%s" % raw)
+            return
+
         self._recv_count += 1
         # 检查Filter
         try:

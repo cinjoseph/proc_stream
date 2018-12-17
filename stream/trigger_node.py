@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+import ujson as json
 import logger
 import threading
 
@@ -7,9 +8,12 @@ class ReaderOutputAlreadyExist(Exception):
     pass
 
 
-class TriggerInitError(Exception):
-    def __init__(self, err):
+class TriggerError(Exception):
+    def __init__(self, err=None):
         Exception.__init__(self, err)
+
+class TriggerInitError(TriggerError):
+    pass
 
 
 class TriggerNotImplement(Exception):
@@ -67,6 +71,12 @@ class TriggerThread:
         self.thread = threading.Thread(target=self.thread_run)
 
     def trigger_emit_callback(self, raw):
+        if type(raw) == str:
+            pass
+        elif type(raw) == dict:
+            raw = json.dumps(raw)
+        else:
+            raise TriggerError("error emit data type %s" % type(raw))
         self._controller_emit_callback(raw)
 
     def thread_run(self):
