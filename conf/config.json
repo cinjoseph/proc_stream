@@ -65,8 +65,8 @@
 	},
 	"Streams": {
 		"TestStream": {
-			"triggers": ["TimerTrigger"],
-			"processe": [
+			"trigger": ["TimerTrigger"],
+			"process": [
 				//      "CustomPrintNode",
 				//      "AddTailNode1",
 				//      "DelayNode",

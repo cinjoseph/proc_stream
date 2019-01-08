@@ -11,7 +11,7 @@ class LoggerHeartBeat(StreamHeartBeat):
     def heart_beat(self, controller):
         infos = controller.runtime_info
         s = json.dumps(infos)
-        logger.info("Server Runtime Info:\n%s" % s)
+        logger.info("Server Runtime Info: %s" % s)
 
 
 

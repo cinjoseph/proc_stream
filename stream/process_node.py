@@ -102,7 +102,7 @@ class HandlerProcessNode(object):
 
 class ProcessNodeCoroutine:
 
-    def __init__(self, name, cls, args, controller_emit_cb, poll_timeout=1, pool_size=1):
+    def __init__(self, name, cls, args, controller_emit_cb, poll_timeout=1, pool_size=1, queue_size=10000):
         self.name = name + "-unit[c]"
         self.processer = cls(self.name, args, controller_emit_cb)
 
@@ -133,10 +133,10 @@ class ProcessNodeCoroutine:
 
 class ProcessNodeThread:
 
-    def __init__(self, name, cls, args, controller_emit_cb, poll_timeout=1, pool_size=1):
+    def __init__(self, name, cls, args, controller_emit_cb, poll_timeout=1, pool_size=1, queue_size=10000):
         self.name = name
         self._poll_timeout = poll_timeout
-        self._event_queue = Queue.Queue()
+        self._event_queue = Queue.Queue(queue_size)
 
         self._pool = []
         for i in range(pool_size):
@@ -156,7 +156,10 @@ class ProcessNodeThread:
         return [node[0] for node in self._pool]
 
     def input(self, event):
-        self._event_queue.put(event)
+        try:
+            self._event_queue.put(event, False)
+        except Queue.Full:
+            logger.info("%s's filter drop event! reason: 'input Queue is full'" % self.name)
 
     def thread_run(self, processer, dismissed, start_success):
         try:
@@ -213,7 +216,7 @@ class ProcessNodeProcess():
 
 class ProcNodeController:
 
-    def __init__(self, name, node_cls, node_args, pool_size=1, poll_timeout=1, mode='single', filter=None):
+    def __init__(self, name, node_cls, node_args, pool_size=1, poll_timeout=1, queue_size=10000, mode='single', filter=None):
         # arguement check
         if not (issubclass(node_cls, OutputProcessNode) or issubclass(node_cls, HandlerProcessNode)):
             raise UnknownNodeType
@@ -247,7 +250,7 @@ class ProcNodeController:
 
         proc_node_cls, pool_size = node_mode_set.get(mode)
         self.node = proc_node_cls(name, node_cls, node_args, self.controller_emit_callback,
-                                  poll_timeout=poll_timeout, pool_size=pool_size)
+                                  poll_timeout=poll_timeout, pool_size=pool_size, queue_size=queue_size)
 
     def register_emit(self, emit):
         self._emit = emit

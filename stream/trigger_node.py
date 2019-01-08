@@ -12,6 +12,7 @@ class TriggerError(Exception):
     def __init__(self, err=None):
         Exception.__init__(self, err)
 
+
 class TriggerInitError(TriggerError):
     pass
 

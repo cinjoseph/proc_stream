@@ -48,8 +48,11 @@ class StreamHeartBeat(object):
         if not self.stop:
             self.start()
 
-    def intialize(self):
-        self._init(*self.args)
+    def initialize(self):
+        try:
+            self._init(self.args)
+        except StreamHeartBeatNotImplement:
+            return
 
     def _init(self, args):
         raise StreamHeartBeatNotImplement
@@ -93,6 +96,7 @@ def create_processer_node(stream_name, name, conf):
     node_args = conf.get("args", {})
     pool_size = conf.get('pool_size', 1)
     poll_timeout = conf.get('poll_timeout', 1)
+    queue_size= conf.get('queue_size', 10000)
     mode = conf.get('mode', 'single')
 
     _filter = conf.get('filter', None)
@@ -102,7 +106,7 @@ def create_processer_node(stream_name, name, conf):
 
     node_name = stream_name + "." + node_name
     node = ProcNodeController(node_name, node_cls, node_args,
-                              pool_size=pool_size, poll_timeout=poll_timeout, mode=mode, filter=_filter)
+                              pool_size=pool_size, poll_timeout=poll_timeout, queue_size=queue_size, mode=mode, filter=_filter)
     return node
 
 
@@ -254,8 +258,8 @@ class StreamController(object):
             raise Exception('start_stream Error, Stream %s does not exsit' % name)
 
         stream_cfg = {}
-        trigger_name_list = self.conf['Streams'][name]['triggers']
-        processer_name_list = self.conf['Streams'][name]['processe']
+        trigger_name_list = self.conf['Streams'][name]['trigger']
+        processer_name_list = self.conf['Streams'][name]['process']
 
         stream_cfg['trigger'] = OrderedDict()
         for trigger_name in trigger_name_list:
@@ -324,6 +328,7 @@ class StreamController(object):
         # 启动所有HeratBeat
         for name, cfg in self.conf['HeartBeat'].items():
             self.heartbeats[name] = self.init_heartbeat(name, cfg)
+            self.heartbeats[name].initialize()
             self.heartbeats[name].start()
 
         while not self.loop_stop.is_set():

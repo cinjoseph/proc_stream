@@ -238,7 +238,6 @@ def init(name=None):
 
 
 def fini():
-    # g_local_logger.log("info", "Process %s stop remote logger %s" % (g_logger_name, g_logger_name))
     g_remote_logger.stop()
     g_remote_logger.join()
     g_local_logger.log("info", "Process %s's custom logger stoped" % (g_logger_name))
