@@ -3,5 +3,5 @@
 *.log
 *.pid
 /.idea
-stream/daemon/
+#stream/daemon/
 
