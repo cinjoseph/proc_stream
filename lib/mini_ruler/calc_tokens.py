@@ -31,9 +31,11 @@ calc_tbl = {
     '-': lambda x, y: x - y,
 }
 
+
 def baisc_calc(op, x, y=None):
     result = calc_tbl[op](x, y)
     return result
+
 
 def get_token_value(env, tok):
     if tok[0] == 'ID':
@@ -42,6 +44,8 @@ def get_token_value(env, tok):
         call, args = tok[1][0], tok[1][1]
         call = env.get_var(call)
         new_args = [ get_token_value(env, arg) for arg in args ]
+        if call == None:
+            raise Exception("call '%s' does not exist" % tok[1][0])
         value = call(*new_args)
     else:
         value = tok[1]
@@ -55,9 +59,9 @@ def create_token(x):
     if type(x) == str: return ('STRING', x)
     if type(x) == bool:  return ('BOOL', x)
     if type(x) == type(None): return ('NULL', x)
-    if type(x) == type(dict): return ('DICT', x)
-    if type(x) == type(list): return ('LIST', x)
-    if type(x) == type(tuple): return ('TUPLE', x)
+    if type(x) == dict: return ('DICT', x)
+    if type(x) == list: return ('LIST', x)
+    if type(x) == tuple: return ('TUPLE', x)
 
     # 目前还不支持 None, list, dict, tple 等类型, 做特殊处理
     # # 当获取到None时， 为False
@@ -221,7 +225,7 @@ def calc(env, tokens):
             elif tok[0] == 'RPAREN':
                 flush_out_stack()
                 operands, _ = stack.pop()
-                stack.operands.append(operands)
+                stack.operands.append(operands[0])
                 tok = tok_iter.next()
             else:
                 raise Exception('Unknow tok %s' % str(tok))

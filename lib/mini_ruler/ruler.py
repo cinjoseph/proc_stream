@@ -75,9 +75,9 @@ def parse_rule(rule_str):
         line = line.replace('\n', '')
         line_no = i + 1
 
-        regMatch = re.match(r'^(?P<rule_name>[a-zA-Z_][a-zA-Z0-9_]*):\s*$', line)
-        if regMatch:  # is rule_name line
-            rule_name = regMatch.groupdict()['rule_name']
+        reg_obj = re.match(r'^(?P<rule_name>[a-zA-Z_][a-zA-Z0-9_]*):\s*$', line)
+        if reg_obj:  # is rule_name line
+            rule_name = reg_obj.groupdict()['rule_name']
             # print "start rule %s: " % rule_name
             if rule_name in result:
                 raise Exception("Duplicate rule '%s' at line %s" % (rule_name, line_no))
@@ -129,6 +129,7 @@ class RulerGoto(Exception):
     def __init__(self, rule_name):
         Exception.__init__(self, rule_name)
 
+
 def goto_rule(rule_name):
     raise RulerGoto(rule_name)
 
@@ -151,7 +152,28 @@ class Ruler:
     def build_rule(self, rule):
         cond_str, then_str = split_rule(rule)
         cond_tokens = self.lexer.parse_tokens(cond_str)
+
+        for tok in cond_tokens:
+            if tok[0] == 'CALL':
+                tmp = self.env.get_var(tok[1][0])
+                if tmp is None:
+                    raise RulerError("Build Rule `%s` Error" % rule)
+                elif not hasattr(tmp, '__call__'):
+                    raise RulerError("Build Rule `%s` Error" % rule)
+
         then_tokens = self.lexer.parse_tokens(then_str)
+
+        if len(then_tokens) != 1:
+            raise RulerError("Build Rule `%s` Error" % rule)
+
+        for tok in then_tokens:
+            if tok[0] == 'CALL':
+                tmp = self.env.get_var(tok[1][0])
+                if tmp is None:
+                    raise RulerError("Build Rule `%s` Error" % rule)
+                elif not hasattr(tmp, '__call__'):
+                    raise RulerError("Build Rule `%s` Error" % rule)
+
         return rule, cond_tokens, then_tokens
 
     def register_rule_set(self, name, rule_list):
@@ -199,9 +221,14 @@ class Ruler:
             raise RulerError("Ruler.entry must input a dict, but not %s" % type(p))
 
         self.env.push()
-        for k, v in p.items():
-            self.env.set_var(k, v)
-        result = self.foreach_rule_set(name)
-        self.env.pop()
-
+        try:
+            for k, v in p.items():
+                self.env.set_var(k, v)
+            result = self.foreach_rule_set(name)
+        except RulerNoMatch:
+            # 必须捕捉RulerNoMatch，并重新抛出，否则self.env.pop可能会被略过,
+            # 导致不断压栈, 内存泄露
+            raise RulerNoMatch
+        finally:
+            self.env.pop()
         return result
