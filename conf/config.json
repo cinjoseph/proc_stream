@@ -10,9 +10,9 @@
 		//}
 	},
 	"HeartBeat": {
-		"LoggerHeartBeat": {
-			"module": "stream.builtin_heartbeats.logger_heart_beat.LoggerHeartBeat"
-		}
+		//"LoggerHeartBeat": {
+		//	"module": "stream.builtin_heartbeats.logger_heart_beat.LoggerHeartBeat"
+		//}
 	},
 	"TriggerTemplate": {
 		"RabbitMQTrigger": {

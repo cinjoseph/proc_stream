@@ -16,9 +16,7 @@ class PrintNode(OutputProcessNode):
         pass
 
     def proc(self, data):
-        if type(data) == str:
-            data = data.decode('utf-8')
-        logger.debug("%s recv data: %s" % (self.name, data))
+        logger.info("%s recv event id=%s, payload size: %s" % (self.name, data['count'], len(data['payload'])))
         pass
 
 
@@ -47,3 +45,4 @@ class AddTailNode(HandlerProcessNode):
     def proc(self, data):
         logger.debug("%s recv data: %s" % (self.name, data))
         self.emit(str(data) + ' +')
+
